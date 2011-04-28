@@ -4,7 +4,7 @@
 %global         daemon mongod
 Name:           mongodb
 Version:        1.8.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -18,6 +18,8 @@ Source1:        %{name}.init
 Source2:        %{name}.logrotate
 Source3:        %{name}.conf
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+
+Patch0:         mongodb-src-r1.8.0-js.patch
 
 BuildRequires:  python-devel
 BuildRequires:  scons
@@ -88,6 +90,7 @@ software, default configuration files, and init scripts.
 
 %prep
 %setup -q -n mongodb-src-r%{version}
+%patch0 -p1 -b .js185
 
 # spurious permissions
 chmod -x README
@@ -207,6 +210,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Thu Apr 28 2011 Martin Stransky <stransky@redhat.com> - 1.8.0-3
+- Build with js 1.8.5
+
 * Sat Mar 19 2011 Nathaniel McCallum <nathaniel@natemccallum.com> - 1.8.0-2
 - Make mongod bind only to 127.0.0.1 by default
 
