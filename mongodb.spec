@@ -4,7 +4,7 @@
 %global         daemon mongod
 Name:           mongodb
 Version:        1.8.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -72,6 +72,7 @@ This package provides the shared library for the MongoDB client.
 Summary:        MongoDB header files
 Group:          Development/Libraries
 Requires:       lib%{name} = %{version}-%{release}
+Requires:       boost-devel
 
 %description devel
 This package provides the header files and C++ driver for MongoDB. MongoDB is
@@ -209,6 +210,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Wed Jul 13 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-2
+- Make mongodb-devel require boost-devel (BZ 703184)
+
 * Fri Jul 01 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-1
 - Update to upstream 1.8.2
 - Add patch to ignore TERM
