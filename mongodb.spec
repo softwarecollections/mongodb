@@ -4,7 +4,7 @@
 %global         daemon mongod
 Name:           mongodb
 Version:        1.8.2
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -212,6 +212,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Thu Jul 21 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-3
+- Rebuild for boost ABI break
+
 * Wed Jul 13 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-2
 - Make mongodb-devel require boost-devel (BZ 703184)
 
