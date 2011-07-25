@@ -1,7 +1,7 @@
 %global         daemon mongod
 Name:           mongodb
 Version:        1.8.2
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -28,13 +28,12 @@ BuildRequires:  libpcap-devel
 # to run tests
 BuildRequires:  unittest
 
-Requires(post): chkconfig
-Requires(preun): chkconfig
+Requires(post): systemd-units
+Requires(preun): systemd-units
 
 Requires(pre):  shadow-utils
 
-# This is for /sbin/service
-Requires(postun): initscripts
+Requires(postun): systemd-units
 
 Requires:       lib%{name} = %{version}-%{release}
 
@@ -146,19 +145,20 @@ useradd -r -g %{name} -d %{_sharedstatedir}/%{name} -s /sbin/nologin \
 exit 0
 
 %post server
-/sbin/chkconfig --add %{daemon}
+/bin/systemctl daemon-reload &> /dev/null || :
 
 
 %preun server
 if [ $1 = 0 ] ; then
-    /sbin/service  stop >/dev/null 2>&1
-    /sbin/chkconfig --del %{daemon}
+   /bin/systemctl --no-reload disable %{daemon}.service &> /dev/null
+   /bin/systemctl stop %{daemon}.service &> /dev/null
 fi
 
 
 %postun server
+/bin/systemctl daemon-reload &> /dev/null
 if [ "$1" -ge "1" ] ; then
-    /sbin/service %{daemon} condrestart >/dev/null 2>&1 || :
+   /bin/systemctl try-restart %{daemon}.service &> /dev/null
 fi
 
 
@@ -203,6 +203,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Mon Jul 25 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-5
+- Fixes to post server, preun server, and postun server to use systemd
+
 * Thu Jul 21 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-4
 - Update to use systemd init
 
