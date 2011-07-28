@@ -1,7 +1,7 @@
 %global         daemon mongod
 Name:           mongodb
 Version:        1.8.2
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -203,6 +203,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Thu Jul 28 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-6
+- BZ 725601 - fix the javascript engine to not hang (thanks to Eduardo Habkost)
+
 * Mon Jul 25 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-5
 - Fixes to post server, preun server, and postun server to use systemd
 
