@@ -1,6 +1,6 @@
 diff -urp mongodb-src-r1.8.2.orig/SConstruct mongodb-src-r1.8.2/SConstruct
---- mongodb-src-r1.8.2.orig/SConstruct	2011-07-01 11:55:58.350694155 -0400
-+++ mongodb-src-r1.8.2/SConstruct	2011-07-01 11:56:17.108504474 -0400
+--- mongodb-src-r1.8.2.orig/SConstruct	2011-07-28 07:54:25.062096915 -0400
++++ mongodb-src-r1.8.2/SConstruct	2011-07-28 07:55:01.783588460 -0400
 @@ -668,10 +668,9 @@ if nix:
      if has_option( "distcc" ):
          env["CXX"] = "distcc " + env["CXX"]
@@ -24,7 +24,7 @@ diff -urp mongodb-src-r1.8.2.orig/SConstruct mongodb-src-r1.8.2/SConstruct
          # then:
 diff -urp mongodb-src-r1.8.2.orig/scripting/engine_spidermonkey.cpp mongodb-src-r1.8.2/scripting/engine_spidermonkey.cpp
 --- mongodb-src-r1.8.2.orig/scripting/engine_spidermonkey.cpp	2011-06-15 09:43:13.000000000 -0400
-+++ mongodb-src-r1.8.2/scripting/engine_spidermonkey.cpp	2011-07-01 12:00:32.489692570 -0400
++++ mongodb-src-r1.8.2/scripting/engine_spidermonkey.cpp	2011-07-28 07:56:02.463076986 -0400
 @@ -192,35 +192,18 @@ namespace mongo {
          }
  
@@ -99,6 +99,33 @@ diff -urp mongodb-src-r1.8.2.orig/scripting/engine_spidermonkey.cpp mongodb-src-
  
              case MinKey:
                  return OBJECT_TO_JSVAL( JS_NewObject( _context , &minkey_class , 0 , 0 ) );
+@@ -782,7 +767,7 @@ namespace mongo {
+                 *statep = PRIVATE_TO_JSVAL( it );
+             }
+             else {
+-                *statep = 0;
++	      *statep = PRIVATE_TO_JSVAL( NULL );
+             }
+             if ( idp )
+                 *idp = JSVAL_ZERO;
+@@ -791,7 +776,7 @@ namespace mongo {
+ 
+         BSONFieldIterator * it = (BSONFieldIterator*)JSVAL_TO_PRIVATE( *statep );
+         if ( ! it ) {
+-            *statep = 0;
++            *statep = JSVAL_NULL;
+             return JS_TRUE;
+         }
+ 
+@@ -803,7 +788,7 @@ namespace mongo {
+             }
+             else {
+                 delete it;
+-                *statep = 0;
++                *statep = JSVAL_NULL;
+             }
+             return JS_TRUE;
+         }
 @@ -818,7 +803,7 @@ namespace mongo {
          return JS_FALSE;
      }
@@ -425,7 +452,7 @@ diff -urp mongodb-src-r1.8.2.orig/scripting/engine_spidermonkey.cpp mongodb-src-
  #include "sm_db.cpp"
 diff -urp mongodb-src-r1.8.2.orig/scripting/engine_spidermonkey.h mongodb-src-r1.8.2/scripting/engine_spidermonkey.h
 --- mongodb-src-r1.8.2.orig/scripting/engine_spidermonkey.h	2011-06-15 09:43:13.000000000 -0400
-+++ mongodb-src-r1.8.2/scripting/engine_spidermonkey.h	2011-07-01 12:00:47.958886768 -0400
++++ mongodb-src-r1.8.2/scripting/engine_spidermonkey.h	2011-07-28 07:55:01.786588338 -0400
 @@ -42,9 +42,6 @@
  #endif
  
@@ -447,7 +474,7 @@ diff -urp mongodb-src-r1.8.2.orig/scripting/engine_spidermonkey.h mongodb-src-r1
      // mongo
 diff -urp mongodb-src-r1.8.2.orig/scripting/sm_db.cpp mongodb-src-r1.8.2/scripting/sm_db.cpp
 --- mongodb-src-r1.8.2.orig/scripting/sm_db.cpp	2011-06-15 09:43:13.000000000 -0400
-+++ mongodb-src-r1.8.2/scripting/sm_db.cpp	2011-07-01 12:03:03.220174591 -0400
++++ mongodb-src-r1.8.2/scripting/sm_db.cpp	2011-07-28 07:55:01.795587967 -0400
 @@ -22,6 +22,9 @@
  #include "../util/text.h"
  #include "../util/hex.h"
