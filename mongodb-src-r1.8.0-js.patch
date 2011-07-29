@@ -1,6 +1,6 @@
-diff -up mongodb-src-r1.8.0/SConstruct.js185 mongodb-src-r1.8.0/SConstruct
---- mongodb-src-r1.8.0/SConstruct.js185	2011-03-16 16:33:30.000000000 +0100
-+++ mongodb-src-r1.8.0/SConstruct	2011-04-28 18:04:57.790238020 +0200
+diff -urp mongodb-src-r1.8.0.orig/SConstruct mongodb-src-r1.8.0/SConstruct
+--- mongodb-src-r1.8.0.orig/SConstruct	2011-03-16 11:33:30.000000000 -0400
++++ mongodb-src-r1.8.0/SConstruct	2011-07-29 07:40:22.058221021 -0400
 @@ -668,10 +668,9 @@ if nix:
      if has_option( "distcc" ):
          env["CXX"] = "distcc " + env["CXX"]
@@ -22,9 +22,18 @@ diff -up mongodb-src-r1.8.0/SConstruct.js185 mongodb-src-r1.8.0/SConstruct
          #env.Append( CPPFLAGS=" -fprofile-generate" )
          #env.Append( LINKFLAGS=" -fprofile-generate" )
          # then:
-diff -up mongodb-src-r1.8.0/scripting/engine_spidermonkey.cpp.js185 mongodb-src-r1.8.0/scripting/engine_spidermonkey.cpp
---- mongodb-src-r1.8.0/scripting/engine_spidermonkey.cpp.js185	2011-03-16 16:33:30.000000000 +0100
-+++ mongodb-src-r1.8.0/scripting/engine_spidermonkey.cpp	2011-04-28 18:04:57.744239178 +0200
+@@ -917,6 +916,8 @@ def doConfigure( myenv , needPcre=True ,
+         if not conf.CheckHeader( mozHeader + "/jsapi.h" ):
+             if conf.CheckHeader( "jsapi.h" ):
+                 myenv.Append( CPPDEFINES=[ "OLDJS" ] )
++            elif conf.CheckHeader( "js/jsapi.h" ):
++                pass
+             else:
+                 print( "no spider monkey headers!" )
+                 Exit(1)
+diff -urp mongodb-src-r1.8.0.orig/scripting/engine_spidermonkey.cpp mongodb-src-r1.8.0/scripting/engine_spidermonkey.cpp
+--- mongodb-src-r1.8.0.orig/scripting/engine_spidermonkey.cpp	2011-03-16 11:33:30.000000000 -0400
++++ mongodb-src-r1.8.0/scripting/engine_spidermonkey.cpp	2011-07-29 07:39:41.404804311 -0400
 @@ -192,35 +192,18 @@ namespace mongo {
          }
  
@@ -102,6 +111,33 @@ diff -up mongodb-src-r1.8.0/scripting/engine_spidermonkey.cpp.js185 mongodb-src-
  
              case MinKey:
                  return OBJECT_TO_JSVAL( JS_NewObject( _context , &minkey_class , 0 , 0 ) );
+@@ -782,7 +769,7 @@ namespace mongo {
+                 *statep = PRIVATE_TO_JSVAL( it );
+             }
+             else {
+-                *statep = 0;
++                *statep = PRIVATE_TO_JSVAL( NULL );
+             }
+             if ( idp )
+                 *idp = JSVAL_ZERO;
+@@ -791,7 +778,7 @@ namespace mongo {
+ 
+         BSONFieldIterator * it = (BSONFieldIterator*)JSVAL_TO_PRIVATE( *statep );
+         if ( ! it ) {
+-            *statep = 0;
++            *statep = JSVAL_NULL;
+             return JS_TRUE;
+         }
+ 
+@@ -803,7 +790,7 @@ namespace mongo {
+             }
+             else {
+                 delete it;
+-                *statep = 0;
++                *statep = JSVAL_NULL;
+             }
+             return JS_TRUE;
+         }
 @@ -818,7 +805,7 @@ namespace mongo {
          return JS_FALSE;
      }
@@ -436,10 +472,10 @@ diff -up mongodb-src-r1.8.0/scripting/engine_spidermonkey.cpp.js185 mongodb-src-
  
  }
  
-diff -up mongodb-src-r1.8.0/scripting/engine_spidermonkey.h.js185 mongodb-src-r1.8.0/scripting/engine_spidermonkey.h
---- mongodb-src-r1.8.0/scripting/engine_spidermonkey.h.js185	2011-03-16 16:33:30.000000000 +0100
-+++ mongodb-src-r1.8.0/scripting/engine_spidermonkey.h	2011-04-28 18:04:57.745239153 +0200
-@@ -42,9 +42,9 @@
+diff -urp mongodb-src-r1.8.0.orig/scripting/engine_spidermonkey.h mongodb-src-r1.8.0/scripting/engine_spidermonkey.h
+--- mongodb-src-r1.8.0.orig/scripting/engine_spidermonkey.h	2011-03-16 11:33:30.000000000 -0400
++++ mongodb-src-r1.8.0/scripting/engine_spidermonkey.h	2011-07-29 07:40:38.525581158 -0400
+@@ -42,16 +42,16 @@
  #endif
  
  #include "jsapi.h"
@@ -452,6 +488,16 @@ diff -up mongodb-src-r1.8.0/scripting/engine_spidermonkey.h.js185 mongodb-src-r1
  
  #else
  
+ #include "js/jsapi.h"
+-#include "js/jsobj.h"
+-#include "js/jsdate.h"
+-#include "js/jsregexp.h"
++//#include "js/jsobj.h"
++//#include "js/jsdate.h"
++//#include "js/jsregexp.h"
+ 
+ #endif
+ 
 @@ -104,7 +104,7 @@ namespace mongo {
      extern boost::thread_specific_ptr<SMScope> currentScope;
  
@@ -461,9 +507,9 @@ diff -up mongodb-src-r1.8.0/scripting/engine_spidermonkey.h.js185 mongodb-src-r1
  
  
      // mongo
-diff -up mongodb-src-r1.8.0/scripting/sm_db.cpp.js185 mongodb-src-r1.8.0/scripting/sm_db.cpp
---- mongodb-src-r1.8.0/scripting/sm_db.cpp.js185	2011-03-16 16:33:30.000000000 +0100
-+++ mongodb-src-r1.8.0/scripting/sm_db.cpp	2011-04-28 18:11:33.533699599 +0200
+diff -urp mongodb-src-r1.8.0.orig/scripting/sm_db.cpp mongodb-src-r1.8.0/scripting/sm_db.cpp
+--- mongodb-src-r1.8.0.orig/scripting/sm_db.cpp	2011-03-16 11:33:30.000000000 -0400
++++ mongodb-src-r1.8.0/scripting/sm_db.cpp	2011-07-29 07:39:41.433803178 -0400
 @@ -22,6 +22,9 @@
  #include "../util/text.h"
  #include "../util/hex.h"
@@ -1160,9 +1206,9 @@ diff -up mongodb-src-r1.8.0/scripting/sm_db.cpp.js185 mongodb-src-r1.8.0/scripti
  #endif
      }
  
-diff -up mongodb-src-r1.8.0/shell/mongo_vstudio.cpp.js185 mongodb-src-r1.8.0/shell/mongo_vstudio.cpp
---- mongodb-src-r1.8.0/shell/mongo_vstudio.cpp.js185	2011-03-16 16:33:30.000000000 +0100
-+++ mongodb-src-r1.8.0/shell/mongo_vstudio.cpp	2011-04-28 18:05:13.034854805 +0200
+diff -urp mongodb-src-r1.8.0.orig/shell/mongo_vstudio.cpp mongodb-src-r1.8.0/shell/mongo_vstudio.cpp
+--- mongodb-src-r1.8.0.orig/shell/mongo_vstudio.cpp	2011-03-16 11:33:30.000000000 -0400
++++ mongodb-src-r1.8.0/shell/mongo_vstudio.cpp	2011-07-29 07:39:41.487801073 -0400
 @@ -2253,8 +2253,8 @@ const StringData _jscode_raw_db = 
  "}\n" 
  "}\n" 
