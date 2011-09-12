@@ -1,7 +1,7 @@
 %global         daemon mongod
 Name:           mongodb
 Version:        1.8.2
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -17,6 +17,7 @@ Source3:        %{name}.logrotate
 Source4:        %{name}.conf
 Patch1:         mongodb-no-term.patch
 Patch2:         mongodb-src-r1.8.2-js.patch
+Patch3:         mongodb-fix-fork.patch
 
 BuildRequires:  python-devel
 BuildRequires:  scons
@@ -89,6 +90,7 @@ software, default configuration files, and init scripts.
 %setup -q -n mongodb-src-r%{version}
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
 
 # spurious permissions
 chmod -x README
@@ -122,6 +124,7 @@ rm -f %{buildroot}%{_libdir}/libmongoclient.a
 
 mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
 mkdir -p %{buildroot}%{_localstatedir}/log/%{name}
+mkdir -p %{buildroot}%{_localstatedir}/run/%{name}
 mkdir -p %{buildroot}/lib/systemd/system
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
 
@@ -194,6 +197,7 @@ fi
 %{_mandir}/man1/mongos.1*
 %dir %attr(0755, %{name}, root) %{_sharedstatedir}/%{name}
 %dir %attr(0755, %{name}, root) %{_localstatedir}/log/%{name}
+%dir %attr(0755, %{name}, root) %{_localstatedir}/run/%{name}
 %config(noreplace) %{_sysconfdir}/logrotate.d/%{name}
 %config(noreplace) %{_sysconfdir}/mongodb.conf
 %config(noreplace) %{_sysconfdir}/sysconfig/%{daemon}
@@ -203,6 +207,10 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Mon Sep 12 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-7
+- Add a patch to fix the forking to play nice with systemd
+- Make the /var/run/mongodb directory owned by mongodb
+
 * Thu Jul 28 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-6
 - BZ 725601 - fix the javascript engine to not hang (thanks to Eduardo Habkost)
 
