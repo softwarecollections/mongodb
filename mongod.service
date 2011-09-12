@@ -5,10 +5,9 @@ After=syslog.target network.target
 [Service]
 Type=forking
 User=mongodb
-PIDFile=/var/run/mongodb.pid
+PIDFile=/var/run/mongodb/mongodb.pid
 EnvironmentFile=/etc/sysconfig/mongod
 ExecStart=/usr/bin/mongod $OPTIONS run
-ExecStop=/bin/kill -TERM $MAINPID
 
 [Install]
 WantedBy=multi-user.target
