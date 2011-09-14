@@ -21,7 +21,7 @@ lockfile="/var/lock/subsys/mongod"
 start() {
     [ -x $exec ] || exit 5
     echo -n $"Starting $prog: "
-    daemon --user mongodb "$exec --quiet $options run >> $logfile 2>&1 &"
+    daemon --user mongodb "$exec --quiet $options run >> $logfile 2>&1"
     retval=$?
     echo
     [ $retval -eq 0 ] && touch $lockfile
@@ -90,4 +90,4 @@ case "$1" in
         echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
         exit 2
 esac
-exit $?
+exit $retval
