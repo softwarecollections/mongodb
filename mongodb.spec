@@ -4,7 +4,7 @@
 %global         daemon mongod
 Name:           mongodb
 Version:        1.8.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -17,6 +17,7 @@ Source0:        http://fastdl.mongodb.org/src/%{name}-src-r%{version}.tar.gz
 Source1:        %{name}.init
 Source2:        %{name}.logrotate
 Source3:        %{name}.conf
+Source4:        %{name}-tmpfile
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 Patch0:         mongodb-src-r1.8.0-js.patch
@@ -132,6 +133,7 @@ mkdir -p %{buildroot}%{_localstatedir}/log/%{name}
 install -p -D -m 755 %{SOURCE1} %{buildroot}%{_initddir}/%{daemon}
 install -p -D -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
 install -p -D -m 644 %{SOURCE3} %{buildroot}%{_sysconfdir}/mongodb.conf
+install -p -D -m 644 %{SOURCE4} %{buildroot}%{_libdir}/../lib/tmpfiles.d/mongodb.conf
 
 mkdir -p %{buildroot}%{_mandir}/man1
 cp -p debian/*.1 %{buildroot}%{_mandir}/man1/
@@ -170,7 +172,6 @@ fi
 
 
 %files
-%defattr(-,root,root,-)
 %{_bindir}/mongo
 %{_bindir}/mongodump
 %{_bindir}/mongoexport
@@ -192,12 +193,10 @@ fi
 %{_mandir}/man1/mongorestore.1*
 
 %files -n lib%{name}
-%defattr(-,root,root,-)
 %doc README GNU-AGPL-3.0.txt APACHE-2.0.txt
 %{_libdir}/libmongoclient.so
 
 %files server
-%defattr(-,root,root,-)
 %{_initddir}/%{daemon}
 %{_bindir}/mongod
 %{_bindir}/mongos
@@ -208,12 +207,15 @@ fi
 %dir %attr(0755, %{name}, root) %{_localstatedir}/run/%{name}
 %config(noreplace) %{_sysconfdir}/logrotate.d/%{name}
 %config(noreplace) %{_sysconfdir}/mongodb.conf
+%{_libdir}/../lib/tmpfiles.d/mongodb.conf
 
 %files devel
-%defattr(-,root,root,-)
 %{_includedir}/mongo
 
 %changelog
+* Tue Sep 20 2011 Chris Lalancette <clalance@redhat.com> - 1.8.0-6
+- Add a tmpfiles.d file to create the /var/run/mongodb subdirectory
+
 * Wed Sep 14 2011 Chris Lalancette <clalance@redhat.com> - 1.8.0-5
 - Fix the js 1.8.5 patch to work properly
 
