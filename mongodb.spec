@@ -1,7 +1,7 @@
 %global         daemon mongod
 Name:           mongodb
 Version:        1.8.2
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -133,7 +133,7 @@ install -p -D -m 644 %{SOURCE1} %{buildroot}/lib/systemd/system/%{daemon}.servic
 install -p -D -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/sysconfig/%{daemon}
 install -p -D -m 644 %{SOURCE3} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
 install -p -D -m 644 %{SOURCE4} %{buildroot}%{_sysconfdir}/mongodb.conf
-install -p -D -m 644 %{SOURCE4} %{buildroot}%{_libdir}/../lib/tmpfiles.d/mongodb.conf
+install -p -D -m 644 %{SOURCE5} %{buildroot}%{_libdir}/../lib/tmpfiles.d/mongodb.conf
 
 mkdir -p %{buildroot}%{_mandir}/man1
 cp -p debian/*.1 %{buildroot}%{_mandir}/man1/
@@ -210,6 +210,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Thu Sep 22 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-9
+- Copy the right source file into place for tmpfiles.d
+
 * Tue Sep 20 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-8
 - Add a tmpfiles.d file to create the /var/run/mongodb subdirectory
 
