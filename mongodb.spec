@@ -1,7 +1,7 @@
 %global         daemon mongod
 Name:           mongodb
 Version:        1.8.2
-Release:        9%{?dist}
+Release:        10%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -210,6 +210,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Sun Nov 20 2011 Chris Lalancette <clalancette@gmail.com> - 1.8.2-10
+- Rebuild for rawhide boost update
+
 * Thu Sep 22 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-9
 - Copy the right source file into place for tmpfiles.d
 
