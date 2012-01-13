@@ -1,7 +1,7 @@
 %global         daemon mongod
 Name:           mongodb
 Version:        1.8.2
-Release:        10%{?dist}
+Release:        11%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -210,6 +210,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Fri Jan 13 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.8.2-11
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_17_Mass_Rebuild
+
 * Sun Nov 20 2011 Chris Lalancette <clalancette@gmail.com> - 1.8.2-10
 - Rebuild for rawhide boost update
 
