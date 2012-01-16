@@ -1,7 +1,7 @@
 %global         daemon mongod
 Name:           mongodb
 Version:        2.0.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -20,6 +20,7 @@ Patch1:         mongodb-no-term.patch
 Patch2:         mongodb-src-r2.0.2-js.patch
 Patch3:         mongodb-fix-fork.patch
 Patch4:         mongodb-fix-pcre.patch
+Patch5:         mongodb-sm-pkgconfig.patch
 
 BuildRequires:  python-devel
 BuildRequires:  scons
@@ -94,6 +95,7 @@ software, default configuration files, and init scripts.
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
+%patch5 -p1
 
 # spurious permissions
 chmod -x README
@@ -215,6 +217,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Mon Jan 16 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-2
+- Add pkg-config enablement patch
+
 * Thu Jan 14 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-1
 - Update to 2.0.2
 - Add new files (mongotop and bsondump manpage)
