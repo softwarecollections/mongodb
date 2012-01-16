@@ -17,9 +17,11 @@ Source3:        %{name}.logrotate
 Source4:        %{name}.conf
 Source5:        %{name}-tmpfile
 Patch1:         mongodb-no-term.patch
-Patch2:         mongodb-src-r2.0.2-js.patch
-Patch3:         mongodb-fix-fork.patch
-Patch4:         mongodb-fix-pcre.patch
+Patch2:         mongodb-fix-fork.patch
+# https://github.com/mongodb/mongo/pull/161
+Patch3:         mongodb-fix-pcre.patch
+# https://github.com/mongodb/mongo/pull/160
+Patch4:         mongodb-src-r2.0.2-js.patch
 Patch5:         mongodb-sm-pkgconfig.patch
 
 BuildRequires:  python-devel
