@@ -12,7 +12,7 @@ index 19a4dcb..f7608ed 100644
 +    libs = filter(lambda x: x.startswith("-l"), libs)
 +    libs = map(lambda x: x[2:], libs)
 +    if cflags or libs:
-+        env.Append( CFLAGS=cflags )
++        env.Append( CXXFLAGS=cflags )
 +        env.Append( LIBS=libs )
 +        return
 +
