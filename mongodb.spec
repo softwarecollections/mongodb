@@ -2,9 +2,10 @@
 %{!?_initddir: %define _initddir %{_initrddir}}
 
 %global         daemon mongod
+
 Name:           mongodb
-Version:        1.8.2
-Release:        2%{?dist}
+Version:        2.0.2
+Release:        3%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -17,7 +18,15 @@ Source0:        http://fastdl.mongodb.org/src/%{name}-src-r%{version}.tar.gz
 Source1:        %{name}.init
 Source2:        %{name}.logrotate
 Source3:        %{name}.conf
+Source4:        %{daemon}.sysconf
+Source5:        %{name}-tmpfile
+Source6:        %{daemon}.service
 Patch1:         mongodb-no-term.patch
+Patch2:         mongodb-fix-fork.patch
+# https://github.com/mongodb/mongo/pull/161
+Patch3:         mongodb-fix-pcre.patch
+# https://github.com/mongodb/mongo/pull/160
+Patch4:         mongodb-src-r2.0.2-js.patch
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires:  python-devel
@@ -30,13 +39,21 @@ BuildRequires:  libpcap-devel
 # to run tests
 BuildRequires:  unittest
 
+%if 0%{?fedora} >= 15
+Requires(post): systemd-units
+Requires(preun): systemd-units
+%else
 Requires(post): chkconfig
 Requires(preun): chkconfig
+%endif
 
 Requires(pre):  shadow-utils
 
-# This is for /sbin/service
+%if 0%{?fedora} >= 15
+Requires(postun): systemd-units
+%else
 Requires(postun): initscripts
+%endif
 
 Requires:       lib%{name} = %{version}-%{release}
 
@@ -91,6 +108,9 @@ software, default configuration files, and init scripts.
 %prep
 %setup -q -n mongodb-src-r%{version}
 %patch1 -p1
+%patch2 -p1
+%patch3 -p1
+%patch4 -p1
 
 # spurious permissions
 chmod -x README
@@ -108,7 +128,7 @@ mv SConstruct SConstruct.orig
 grep -v 'Werror' SConstruct.orig > SConstruct
 sed -i 's/-Wall/-DBOOST_FILESYSTEM_VERSION=2/' SConstruct
 
-scons %{?_smp_mflags} --sharedclient .
+scons %{?_smp_mflags} --sharedclient --use-system-all .
 
 %install
 rm -rf %{buildroot}
@@ -117,17 +137,27 @@ scons install . \
 	--extralib termcap \
 %endif
 	--sharedclient \
+	--use-system-all \
 	--prefix=%{buildroot}%{_prefix} \
 	--nostrip \
 	--full
 rm -f %{buildroot}%{_libdir}/libmongoclient.a
 
 mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
-
 mkdir -p %{buildroot}%{_localstatedir}/log/%{name}
+mkdir -p %{buildroot}%{_localstatedir}/run/%{name}
+mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
+
+%if 0%{?fedora} >= 15
+mkdir -p %{buildroot}/lib/systemd/system
+install -p -D -m 644 %{SOURCE5} %{buildroot}%{_libdir}/../lib/tmpfiles.d/mongodb.conf
+install -p -D -m 644 %{SOURCE6} %{buildroot}/lib/systemd/system/%{daemon}.service
+%else
 install -p -D -m 755 %{SOURCE1} %{buildroot}%{_initddir}/%{daemon}
+%endif
 install -p -D -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
 install -p -D -m 644 %{SOURCE3} %{buildroot}%{_sysconfdir}/mongodb.conf
+install -p -D -m 644 %{SOURCE4} %{buildroot}%{_sysconfdir}/sysconfig/%{daemon}
 
 mkdir -p %{buildroot}%{_mandir}/man1
 cp -p debian/*.1 %{buildroot}%{_mandir}/man1/
@@ -149,19 +179,35 @@ useradd -r -g %{name} -d %{_sharedstatedir}/%{name} -s /sbin/nologin \
 exit 0
 
 %post server
+%if 0%{?fedora} >= 15
+/bin/systemctl daemon-reload &> /dev/null || :
+%else
 /sbin/chkconfig --add %{daemon}
+%endif
 
 
 %preun server
 if [ $1 = 0 ] ; then
-    /sbin/service  stop >/dev/null 2>&1
-    /sbin/chkconfig --del %{daemon}
+%if 0%{?fedora} >= 15
+  /bin/systemctl --no-reload disable %{daemon}.service &> /dev/null
+  /bin/systemctl stop %{daemon}.service &> /dev/null
+%else
+  /sbin/service  stop >/dev/null 2>&1
+  /sbin/chkconfig --del %{daemon}
+%endif
 fi
 
 
 %postun server
+%if 0%{?fedora} >= 15
+/bin/systemctl daemon-reload &> /dev/null
+%endif
 if [ "$1" -ge "1" ] ; then
-    /sbin/service %{daemon} condrestart >/dev/null 2>&1 || :
+%if 0%{?fedora} >= 15
+   /bin/systemctl try-restart %{daemon}.service &> /dev/null
+%else
+   /sbin/service %{daemon} condrestart >/dev/null 2>&1 || :
+%endif
 fi
 
 
@@ -176,6 +222,7 @@ fi
 %{_bindir}/mongostat
 %{_bindir}/mongosniff
 %{_bindir}/bsondump
+%{_bindir}/mongotop
 
 %{_mandir}/man1/mongo.1*
 %{_mandir}/man1/mongod.1*
@@ -186,6 +233,7 @@ fi
 %{_mandir}/man1/mongosniff.1*
 %{_mandir}/man1/mongostat.1*
 %{_mandir}/man1/mongorestore.1*
+%{_mandir}/man1/bsondump.1*
 
 %files -n lib%{name}
 %defattr(-,root,root,-)
@@ -194,7 +242,6 @@ fi
 
 %files server
 %defattr(-,root,root,-)
-%{_initddir}/%{daemon}
 %{_bindir}/mongod
 %{_bindir}/mongos
 %{_mandir}/man1/mongod.1*
@@ -204,12 +251,61 @@ fi
 %dir %attr(0755, %{name}, root) %{_localstatedir}/run/%{name}
 %config(noreplace) %{_sysconfdir}/logrotate.d/%{name}
 %config(noreplace) %{_sysconfdir}/mongodb.conf
+%config(noreplace) %{_sysconfdir}/sysconfig/%{daemon}
+%if 0%{?fedora} >= 15
+/lib/systemd/system/*.service
+%{_libdir}/../lib/tmpfiles.d/mongodb.conf
+%else
+%{_initddir}/%{daemon}
+%endif
 
 %files devel
 %defattr(-,root,root,-)
 %{_includedir}/mongo
 
 %changelog
+* Mon Jan 16 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-3
+- Merge the 2.0.2 spec file with EPEL
+- Merge mongodb-sm-pkgconfig.patch into mongodb-src-r2.0.2-js.patch
+
+* Mon Jan 16 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-2
+- Add pkg-config enablement patch
+
+* Thu Jan 14 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-1
+- Update to 2.0.2
+- Add new files (mongotop and bsondump manpage)
+- Update mongodb-src-r1.8.2-js.patch => mongodb-src-r2.0.2-js.patch
+- Update mongodb-fix-fork.patch
+- Fix pcre linking
+
+* Fri Jan 13 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.8.2-11
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_17_Mass_Rebuild
+
+* Sun Nov 20 2011 Chris Lalancette <clalancette@gmail.com> - 1.8.2-10
+- Rebuild for rawhide boost update
+
+* Thu Sep 22 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-9
+- Copy the right source file into place for tmpfiles.d
+
+* Tue Sep 20 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-8
+- Add a tmpfiles.d file to create the /var/run/mongodb subdirectory
+
+* Mon Sep 12 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-7
+- Add a patch to fix the forking to play nice with systemd
+- Make the /var/run/mongodb directory owned by mongodb
+
+* Thu Jul 28 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-6
+- BZ 725601 - fix the javascript engine to not hang (thanks to Eduardo Habkost)
+
+* Mon Jul 25 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-5
+- Fixes to post server, preun server, and postun server to use systemd
+
+* Thu Jul 21 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-4
+- Update to use systemd init
+
+* Thu Jul 21 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-3
+- Rebuild for boost ABI break
+
 * Wed Jul 13 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-2
 - Make mongodb-devel require boost-devel (BZ 703184)
 
