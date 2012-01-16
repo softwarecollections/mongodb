@@ -1,7 +1,7 @@
 %global         daemon mongod
 Name:           mongodb
-Version:        1.8.2
-Release:        9%{?dist}
+Version:        2.0.2
+Release:        2%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -17,8 +17,12 @@ Source3:        %{name}.logrotate
 Source4:        %{name}.conf
 Source5:        %{name}-tmpfile
 Patch1:         mongodb-no-term.patch
-Patch2:         mongodb-src-r1.8.2-js.patch
-Patch3:         mongodb-fix-fork.patch
+Patch2:         mongodb-fix-fork.patch
+# https://github.com/mongodb/mongo/pull/161
+Patch3:         mongodb-fix-pcre.patch
+# https://github.com/mongodb/mongo/pull/160
+Patch4:         mongodb-src-r2.0.2-js.patch
+Patch5:         mongodb-sm-pkgconfig.patch
 
 BuildRequires:  python-devel
 BuildRequires:  scons
@@ -92,6 +96,8 @@ software, default configuration files, and init scripts.
 %patch1 -p1
 %patch2 -p1
 %patch3 -p1
+%patch4 -p1
+%patch5 -p1
 
 # spurious permissions
 chmod -x README
@@ -109,7 +115,7 @@ mv SConstruct SConstruct.orig
 grep -v 'Werror' SConstruct.orig > SConstruct
 sed -i 's/-Wall/-DBOOST_FILESYSTEM_VERSION=2/' SConstruct
 
-scons %{?_smp_mflags} --sharedclient .
+scons %{?_smp_mflags} --sharedclient --use-system-all .
 
 %install
 rm -rf %{buildroot}
@@ -118,6 +124,7 @@ scons install . \
 	--extralib termcap \
 %endif
 	--sharedclient \
+	--use-system-all \
 	--prefix=%{buildroot}%{_prefix} \
 	--nostrip \
 	--full
@@ -177,6 +184,7 @@ fi
 %{_bindir}/mongostat
 %{_bindir}/mongosniff
 %{_bindir}/bsondump
+%{_bindir}/mongotop
 
 %{_mandir}/man1/mongo.1*
 %{_mandir}/man1/mongod.1*
@@ -187,6 +195,7 @@ fi
 %{_mandir}/man1/mongosniff.1*
 %{_mandir}/man1/mongostat.1*
 %{_mandir}/man1/mongorestore.1*
+%{_mandir}/man1/bsondump.1*
 
 %files -n lib%{name}
 %doc README GNU-AGPL-3.0.txt APACHE-2.0.txt
@@ -210,6 +219,22 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Mon Jan 16 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-2
+- Add pkg-config enablement patch
+
+* Thu Jan 14 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-1
+- Update to 2.0.2
+- Add new files (mongotop and bsondump manpage)
+- Update mongodb-src-r1.8.2-js.patch => mongodb-src-r2.0.2-js.patch
+- Update mongodb-fix-fork.patch
+- Fix pcre linking
+
+* Fri Jan 13 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.8.2-11
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_17_Mass_Rebuild
+
+* Sun Nov 20 2011 Chris Lalancette <clalancette@gmail.com> - 1.8.2-10
+- Rebuild for rawhide boost update
+
 * Thu Sep 22 2011 Chris Lalancette <clalance@redhat.com> - 1.8.2-9
 - Copy the right source file into place for tmpfiles.d
 
