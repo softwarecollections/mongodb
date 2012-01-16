@@ -1,7 +1,7 @@
 diff --git a/src/third_party/sm.py b/src/third_party/sm.py
 index 19a4dcb..f7608ed 100644
---- a/src/third_party/sm.py
-+++ b/src/third_party/sm.py
+--- a/third_party/sm.py
++++ b/third_party/sm.py
 @@ -111,4 +111,14 @@ def configureSystem( env , fileLists , options ):
      
      configureBasics( env , fileLists , options )
