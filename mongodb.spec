@@ -24,10 +24,6 @@ Patch3:         mongodb-fix-pcre.patch
 Patch4:         mongodb-src-r2.0.2-js.patch
 Patch5:         mongodb-sm-pkgconfig.patch
 
-Patch0:         mongodb-src-r1.8.0-js.patch
-Patch1:         mongodb-no-term.patch
-Patch2:         mongodb-fix-fork.patch
-
 BuildRequires:  python-devel
 BuildRequires:  scons
 BuildRequires:  boost-devel
