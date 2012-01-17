@@ -5,7 +5,7 @@
 
 Name:           mongodb
 Version:        2.0.2
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -27,6 +27,8 @@ Patch2:         mongodb-fix-fork.patch
 Patch3:         mongodb-fix-pcre.patch
 # https://github.com/mongodb/mongo/pull/160
 Patch4:         mongodb-src-r2.0.2-js.patch
+# https://jira.mongodb.org/browse/SERVER-4591
+Patch5:         mongodb-fix-oldpython.patch
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires:  python-devel
@@ -111,6 +113,7 @@ software, default configuration files, and init scripts.
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
+%patch5 -p1
 
 # spurious permissions
 chmod -x README
@@ -264,6 +267,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Tue Jan 17 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-4
+- Patch buildsystem for building on older pythons (RHEL5)
+
 * Mon Jan 16 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-3
 - Merge the 2.0.2 spec file with EPEL
 - Merge mongodb-sm-pkgconfig.patch into mongodb-src-r2.0.2-js.patch
