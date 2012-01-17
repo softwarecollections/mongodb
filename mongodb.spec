@@ -5,7 +5,7 @@
 
 Name:           mongodb
 Version:        2.0.2
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -29,6 +29,8 @@ Patch3:         mongodb-fix-pcre.patch
 Patch4:         mongodb-src-r2.0.2-js.patch
 # https://jira.mongodb.org/browse/SERVER-4591
 Patch5:         mongodb-fix-oldpython.patch
+# https://jira.mongodb.org/browse/SERVER-4634
+Patch6:         mongodb-enable-external-snappy.patch
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires:  python-devel
@@ -38,6 +40,7 @@ BuildRequires:  pcre-devel
 BuildRequires:  js-devel
 BuildRequires:  readline-devel
 BuildRequires:  libpcap-devel
+BuildRequires:  snappy-devel
 # to run tests
 BuildRequires:  unittest
 
@@ -114,6 +117,7 @@ software, default configuration files, and init scripts.
 %patch3 -p1
 %patch4 -p1
 %patch5 -p1
+%patch6 -p1
 
 # spurious permissions
 chmod -x README
@@ -267,6 +271,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Tue Jan 17 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-5
+- Enable build using external snappy
+
 * Tue Jan 17 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-4
 - Patch buildsystem for building on older pythons (RHEL5)
 
