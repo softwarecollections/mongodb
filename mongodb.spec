@@ -5,7 +5,7 @@
 
 Name:           mongodb
 Version:        2.0.2
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -269,6 +269,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Fri Feb 03 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-8
+- Disable HTTP interface by default (#752331)
+
 * Fri Feb 03 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-7
 - Enable journaling by default (#656112)
 - Remove BuildRequires on unittest (#755081)
