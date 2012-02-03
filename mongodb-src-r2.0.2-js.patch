@@ -11,16 +11,20 @@ index 1e9684d..c555ec7 100644
  # undef  SUPPORT_UCP
  # define SUPPORT_UCP
 diff --git a/scripting/engine_spidermonkey.cpp b/scripting/engine_spidermonkey.cpp
-index 64fe21c..d496369 100644
+index 64fe21c..2fa2fcd 100644
 --- a/scripting/engine_spidermonkey.cpp
 +++ b/scripting/engine_spidermonkey.cpp
-@@ -25,6 +25,13 @@
+@@ -25,6 +25,17 @@
  #define assert MONGO_assert
  #endif
  
 +#if JS_VERSION < 185
 +#define JS_StrictPropertyStub JS_PropertyStub
 +#define FUNCSPEC(name, call, nargs, flags) { name, call, nargs, flags, 0 }
++#define JS_RVAL(cx, rval) *rval
++#define JS_SET_RVAL(cx, rval, v) JS_RVAL(cx, rval) = v
++#define JS_AddNamedObjectRoot JS_AddNamedRoot
++#define JS_RemoveObjectRoot JS_RemoveRoot
 +#else
 +#define FUNCSPEC(name, call, nargs, flags) { name, call, nargs, flags }
 +#endif
@@ -28,39 +32,25 @@ index 64fe21c..d496369 100644
  #define smuassert( cx , msg , val ) \
      if ( ! ( val ) ){ \
          JS_ReportError( cx , msg ); \
-@@ -192,6 +199,7 @@ namespace mongo {
+@@ -192,8 +203,15 @@ namespace mongo {
          }
  
          string toString( JSString * so ) {
+-            jschar * s = JS_GetStringChars( so );
+-            size_t srclen = JS_GetStringLength( so );
++            size_t srclen = 0;
++            const jschar * s = NULL;
++
 +#if JS_VERSION < 185
-             jschar * s = JS_GetStringChars( so );
-             size_t srclen = JS_GetStringLength( so );
-             if( srclen == 0 )
-@@ -218,9 +226,21 @@ namespace mongo {
- 
-             string ss( dst , len );
-             free( dst );
++            srclen = JS_GetStringLength( so );
++            s = JS_GetStringChars( so );
 +#else
-+            char * s = (char *)JS_EncodeString(_context, so );
-+            size_t srclen = strlen( s );
-+            if( srclen == 0 ) {
-+            	JS_free(_context, s);
-+            	return "";
-+            }
-+
-+            string ss( s, srclen );
-+            JS_free(_context, s);
++            s = JS_GetStringCharsAndLength( _context , so , &srclen );
 +#endif
-+
-             if ( !JS_CStringsAreUTF8() )
--                for( string::const_iterator i = ss.begin(); i != ss.end(); ++i )
--                    uassert( 10213 ,  "non ascii character detected", (unsigned char)(*i) <= 127 );
-+            	for( string::const_iterator i = ss.begin(); i != ss.end(); ++i )
-+            		uassert( 10213 ,  "non ascii character detected", (unsigned char)(*i) <= 127 );
-             return ss;
-         }
+             if( srclen == 0 )
+                 return "";
  
-@@ -364,7 +384,7 @@ namespace mongo {
+@@ -364,7 +382,7 @@ namespace mongo {
  
              case JSTYPE_OBJECT: {
                  JSObject * o = JSVAL_TO_OBJECT( val );
@@ -69,7 +59,20 @@ index 64fe21c..d496369 100644
                      b.appendNull( name );
                  }
                  else if ( ! appendSpecialDBObject( this , b , name , val , o ) ) {
-@@ -649,7 +669,13 @@ namespace mongo {
+@@ -423,12 +441,9 @@ namespace mongo {
+             return true;
+         }
+ 
+-        void addRoot( JSFunction * f , const char * name );
+-
+         JSFunction * compileFunction( const char * code, JSObject * assoc = 0 ) {
+             const char * gcName = "unknown";
+             JSFunction * f = _compileFunction( code , assoc , gcName );
+-            //addRoot( f , gcName );
+             return f;
+         }
+ 
+@@ -649,7 +664,13 @@ namespace mongo {
                      flags++;
                  }
  
@@ -84,7 +87,7 @@ index 64fe21c..d496369 100644
                  assert( r );
                  return OBJECT_TO_JSVAL( r );
              }
-@@ -670,7 +696,11 @@ namespace mongo {
+@@ -670,7 +691,11 @@ namespace mongo {
                  return OBJECT_TO_JSVAL( JS_GetFunctionObject( func ) );
              }
              case Date:
@@ -96,7 +99,18 @@ index 64fe21c..d496369 100644
  
              case MinKey:
                  return OBJECT_TO_JSVAL( JS_NewObject( _context , &minkey_class , 0 , 0 ) );
-@@ -801,7 +831,7 @@ namespace mongo {
+@@ -792,16 +817,16 @@ namespace mongo {
+     }
+ 
+     JSBool bson_enumerate( JSContext *cx, JSObject *obj, JSIterateOp enum_op, jsval *statep, jsid *idp ) {
+-
+-        BSONHolder * o = GETHOLDER( cx , obj );
++        Convertor c(cx);
+ 
+         if ( enum_op == JSENUMERATE_INIT ) {
++            BSONHolder * o = GETHOLDER( cx , obj );
+             if ( o ) {
+                 BSONFieldIterator * it = o->it();
                  *statep = PRIVATE_TO_JSVAL( it );
              }
              else {
@@ -105,16 +119,22 @@ index 64fe21c..d496369 100644
              }
              if ( idp )
                  *idp = JSVAL_ZERO;
-@@ -810,7 +840,7 @@ namespace mongo {
+@@ -809,20 +834,19 @@ namespace mongo {
+         }
  
          BSONFieldIterator * it = (BSONFieldIterator*)JSVAL_TO_PRIVATE( *statep );
-         if ( ! it ) {
+-        if ( ! it ) {
 -            *statep = 0;
++        if ( ! it || *statep == JSVAL_NULL ) {
 +            *statep = JSVAL_NULL;
              return JS_TRUE;
          }
  
-@@ -822,7 +852,7 @@ namespace mongo {
+         if ( enum_op == JSENUMERATE_NEXT ) {
+             if ( it->more() ) {
+                 string name = it->next();
+-                Convertor c(cx);
+                 assert( JS_ValueToId( cx , c.toval( name.c_str() ) , idp ) );
              }
              else {
                  delete it;
@@ -123,26 +143,25 @@ index 64fe21c..d496369 100644
              }
              return JS_TRUE;
          }
-@@ -837,7 +867,11 @@ namespace mongo {
+@@ -837,7 +861,11 @@ namespace mongo {
          return JS_FALSE;
      }
  
--    JSBool noaccess( JSContext *cx, JSObject *obj, jsval idval, jsval *vp) {
-+#if JS_VERSION >= 185
-+    JSBool noaccess_strict( JSContext *cx, JSObject *obj, jsid id, JSBool strict, jsval *vp) {
++#if JS_VERSION < 185
+     JSBool noaccess( JSContext *cx, JSObject *obj, jsval idval, jsval *vp) {
 +#else
-+	JSBool noaccess( JSContext *cx, JSObject *obj, jsval idval, jsval *vp) {
++    JSBool noaccess( JSContext *cx, JSObject *obj, jsid id, jsval *vp) {
 +#endif
          BSONHolder * holder = GETHOLDER( cx , obj );
          if ( ! holder ) {
              // in init code still
-@@ -849,14 +883,29 @@ namespace mongo {
+@@ -849,14 +877,29 @@ namespace mongo {
          return JS_FALSE;
      }
  
 +#if JS_VERSION >= 185
-+    JSBool noaccess( JSContext *cx, JSObject *obj, jsid id, jsval *vp) {
-+    	return noaccess_strict(cx, obj, id, JS_FALSE, vp);
++    JSBool noaccess_strict( JSContext *cx, JSObject *obj, jsid id, JSBool strict, jsval *vp) {
++        return noaccess(cx, obj, id, vp);
 +    }
 +#endif
 +
@@ -162,12 +181,12 @@ index 64fe21c..d496369 100644
 +#if JS_VERSION < 185
      JSBool bson_cons( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
 +#else
-+    JSBool bson_cons( JSContext *cx, uintN argc, jsval *vp ) {
++    JSBool bson_cons( JSContext *cx, uintN argc, jsval *rval ) {
 +#endif
          cerr << "bson_cons : shouldn't be here!" << endl;
          JS_ReportError( cx , "can't construct bson object" );
          return JS_FALSE;
-@@ -866,7 +915,11 @@ namespace mongo {
+@@ -866,7 +909,13 @@ namespace mongo {
          { 0 }
      };
  
@@ -175,23 +194,13 @@ index 64fe21c..d496369 100644
      JSBool bson_add_prop( JSContext *cx, JSObject *obj, jsval idval, jsval *vp) {
 +#else
 +    JSBool bson_add_prop( JSContext *cx, JSObject *obj, jsid id, jsval *vp) {
++        jsval idval;
++        assert(JS_IdToValue(cx, id, &idval));
 +#endif
          BSONHolder * holder = GETHOLDER( cx , obj );
          if ( ! holder ) {
              // static init
-@@ -874,7 +927,11 @@ namespace mongo {
-         }
-         if ( ! holder->_inResolve ) {
-             Convertor c(cx);
-+#if JS_VERSION < 185
-             string name = c.toString( idval );
-+#else
-+            string name = c.toString( JSID_TO_STRING(id) );
-+#endif
-             if ( holder->_obj[name].eoo() ) {
-                 holder->_extra.push_back( name );
-             }
-@@ -883,8 +940,11 @@ namespace mongo {
+@@ -883,8 +932,13 @@ namespace mongo {
          return JS_TRUE;
      }
  
@@ -199,42 +208,28 @@ index 64fe21c..d496369 100644
 +#if JS_VERSION < 185
      JSBool mark_modified( JSContext *cx, JSObject *obj, jsval idval, jsval *vp) {
 +#else
-+	JSBool mark_modified( JSContext *cx, JSObject *obj, jsid id, JSBool strict, jsval *vp) {
++    JSBool mark_modified( JSContext *cx, JSObject *obj, jsid id, JSBool strict, jsval *vp) {
++        jsval idval;
++        assert(JS_IdToValue(cx, id, &idval));
 +#endif
          Convertor c(cx);
          BSONHolder * holder = GETHOLDER( cx , obj );
          if ( !holder ) // needed when we're messing with DBRef.prototype
-@@ -892,17 +952,29 @@ namespace mongo {
-         if ( holder->_inResolve )
-             return JS_TRUE;
-         holder->_modified = true;
-+#if JS_VERSION < 185
-         holder->_removed.erase( c.toString( idval ) );
-+#else
-+        holder->_removed.erase( c.toString( JSID_TO_STRING(id) ) );
-+#endif
+@@ -896,7 +950,13 @@ namespace mongo {
          return JS_TRUE;
      }
  
 +#if JS_VERSION < 185
      JSBool mark_modified_remove( JSContext *cx, JSObject *obj, jsval idval, jsval *vp) {
 +#else
-+	JSBool mark_modified_remove( JSContext *cx, JSObject *obj, jsid id, jsval *vp) {
++    JSBool mark_modified_remove( JSContext *cx, JSObject *obj, jsid id, jsval *vp) {
++        jsval idval;
++        assert(JS_IdToValue(cx, id, &idval));
 +#endif
          Convertor c(cx);
          BSONHolder * holder = GETHOLDER( cx , obj );
          if ( holder->_inResolve )
-             return JS_TRUE;
-         holder->_modified = true;
-+#if JS_VERSION < 185
-         holder->_removed.insert( c.toString( idval ) );
-+#else
-+        holder->_removed.insert( c.toString( JSID_TO_STRING(id) ) );
-+#endif
-         return JS_TRUE;
-     }
- 
-@@ -915,14 +987,13 @@ namespace mongo {
+@@ -915,14 +975,13 @@ namespace mongo {
  
      static JSClass global_class = {
          "global", JSCLASS_GLOBAL_FLAGS,
@@ -251,15 +246,12 @@ index 64fe21c..d496369 100644
          JSObject * o = JS_NewObject( cx , &bindata_class , 0 , 0 );
          CHECKNEWOBJECT(o,_context,"Bindata_BinData1");
          int len = s.size() / 2;
-@@ -936,12 +1007,21 @@ namespace mongo {
+@@ -936,12 +995,17 @@ namespace mongo {
          Convertor c(cx);
          c.setProperty( o, "len", c.toval((double)len) );
          c.setProperty( o, "type", c.toval((double)subtype) );
-+#if JS_VERSION < 185
-         *rval = OBJECT_TO_JSVAL( o );
-+#else
+-        *rval = OBJECT_TO_JSVAL( o );
 +        JS_SET_RVAL(cx, rval, OBJECT_TO_JSVAL( o ));
-+#endif
          delete data;
          return JS_TRUE;
      }
@@ -267,13 +259,13 @@ index 64fe21c..d496369 100644
 +#if JS_VERSION < 185
      JSBool _HexData( JSContext * cx , JSObject * obj , uintN argc, jsval *argv, jsval *rval ) {
 +#else
-+	JSBool _HexData( JSContext * cx , uintN argc, jsval *rval ) {
-+    	jsval *argv = JS_ARGV(cx, rval);
++    JSBool _HexData( JSContext * cx , uintN argc, jsval *rval ) {
++        jsval *argv = JS_ARGV(cx, rval);
 +#endif
          Convertor c( cx );
          if ( argc != 2 ) {
              JS_ReportError( cx , "HexData needs 2 arguments -- HexData(subtype,hexstring)" );
-@@ -956,7 +1036,12 @@ namespace mongo {
+@@ -956,7 +1020,12 @@ namespace mongo {
          return hexToBinData(cx, rval, type, s);
      }
  
@@ -281,12 +273,12 @@ index 64fe21c..d496369 100644
      JSBool _UUID( JSContext * cx , JSObject * obj , uintN argc, jsval *argv, jsval *rval ) {
 +#else
 +    JSBool _UUID( JSContext * cx , uintN argc, jsval *rval ) {
-+    	jsval *argv = JS_ARGV(cx, rval);
++        jsval *argv = JS_ARGV(cx, rval);
 +#endif
          Convertor c( cx );
          if ( argc != 1 ) {
              JS_ReportError( cx , "UUID needs argument -- UUID(hexstring)" );
-@@ -970,7 +1055,12 @@ namespace mongo {
+@@ -970,7 +1039,12 @@ namespace mongo {
          return hexToBinData(cx, rval, 3, s);
      }
  
@@ -294,12 +286,12 @@ index 64fe21c..d496369 100644
      JSBool _MD5( JSContext * cx , JSObject * obj , uintN argc, jsval *argv, jsval *rval ) {
 +#else
 +    JSBool _MD5( JSContext * cx , uintN argc, jsval *rval ) {
-+    	jsval *argv = JS_ARGV(cx, rval);
++        jsval *argv = JS_ARGV(cx, rval);
 +#endif
          Convertor c( cx );
          if ( argc != 1 ) {
              JS_ReportError( cx , "MD5 needs argument -- MD5(hexstring)" );
-@@ -984,7 +1074,12 @@ namespace mongo {
+@@ -984,7 +1058,13 @@ namespace mongo {
          return hexToBinData(cx, rval, 5, s);
      }
  
@@ -307,50 +299,36 @@ index 64fe21c..d496369 100644
      JSBool native_print( JSContext * cx , JSObject * obj , uintN argc, jsval *argv, jsval *rval ) {
 +#else
 +    JSBool native_print( JSContext *cx , uintN argc, jsval *rval) {
-+    	jsval *argv = JS_ARGV(cx, rval);
++        jsval *argv = JS_ARGV(cx, rval);
++        JS_SET_RVAL(cx, rval, JSVAL_VOID);
 +#endif
          stringstream ss;
          Convertor c( cx );
          for ( uintN i=0; i<argc; i++ ) {
-@@ -997,7 +1092,12 @@ namespace mongo {
+@@ -997,7 +1077,13 @@ namespace mongo {
          return JS_TRUE;
      }
  
 +#if JS_VERSION < 185
      JSBool native_helper( JSContext *cx , JSObject *obj , uintN argc, jsval *argv , jsval *rval ) {
 +#else
-+    JSBool native_helper( JSContext *cx , uintN argc, jsval *vp ) {
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
++    JSBool native_helper( JSContext *cx , uintN argc, jsval *rval ) {
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
++        jsval *argv = JS_ARGV(cx, rval);
 +#endif
          Convertor c(cx);
  
          NativeFunction func = (NativeFunction)((long long)c.getNumber( obj , "x" ) );
-@@ -1007,6 +1107,9 @@ namespace mongo {
-         BSONObj a;
-         if ( argc > 0 ) {
-             BSONObjBuilder args;
-+#if JS_VERSION >= 185
-+            jsval *argv = JS_ARGV(cx, vp);
-+#endif
-             for ( uintN i=0; i<argc; i++ ) {
-                 c.append( args , args.numStr( i ) , argv[i] );
-             }
-@@ -1024,38 +1127,58 @@ namespace mongo {
+@@ -1024,38 +1110,51 @@ namespace mongo {
          }
  
          if ( out.isEmpty() ) {
-+#if JS_VERSION < 185
-             *rval = JSVAL_VOID;
-+#else
-+            JS_SET_RVAL(cx, vp, JSVAL_VOID);
-+#endif
+-            *rval = JSVAL_VOID;
++            JS_SET_RVAL(cx, rval, JSVAL_VOID);
          }
          else {
-+#if JS_VERSION < 185
-             *rval = c.toval( out.firstElement() );
-+#else
-+            JS_SET_RVAL(cx, vp, c.toval( out.firstElement() ));
-+#endif
+-            *rval = c.toval( out.firstElement() );
++            JS_SET_RVAL(cx, rval, c.toval( out.firstElement() ));
          }
  
          return JS_TRUE;
@@ -365,7 +343,8 @@ index 64fe21c..d496369 100644
 +#if JS_VERSION < 185
      JSBool native_gc( JSContext *cx , JSObject *obj , uintN argc, jsval *argv , jsval *rval ) {
 +#else
-+    JSBool native_gc( JSContext *cx , uintN argc, jsval *vp ) {
++    JSBool native_gc( JSContext *cx , uintN argc, jsval *rval ) {
++        JS_SET_RVAL(cx, rval, JSVAL_VOID);
 +#endif
          JS_GC( cx );
          return JS_TRUE;
@@ -380,14 +359,14 @@ index 64fe21c..d496369 100644
 -        { "MD5", &_MD5, 0, 0, 0 } ,
 -        { "HexData", &_HexData, 0, 0, 0 } ,
 -        { 0 , 0 , 0 , 0 , 0 }
-+		FUNCSPEC( "print" , &native_print , 0 , 0 ),
-+		FUNCSPEC( "nativeHelper" , &native_helper , 1 , 0 ),
-+		FUNCSPEC( "load" , &native_load , 1 , 0 ),
-+		FUNCSPEC( "gc" , &native_gc , 1 , 0 ),
-+		FUNCSPEC( "UUID", &_UUID, 0, 0 ),
-+		FUNCSPEC( "MD5", &_MD5, 0, 0 ),
-+		FUNCSPEC( "HexData", &_HexData, 0, 0 ),
-+		FUNCSPEC( NULL , NULL , 0 , 0 ),
++        FUNCSPEC( "print" , &native_print , 0 , 0 ),
++        FUNCSPEC( "nativeHelper" , &native_helper , 1 , 0 ),
++        FUNCSPEC( "load" , &native_load , 1 , 0 ),
++        FUNCSPEC( "gc" , &native_gc , 1 , 0 ),
++        FUNCSPEC( "UUID", &_UUID, 0, 0 ),
++        FUNCSPEC( "MD5", &_MD5, 0, 0 ),
++        FUNCSPEC( "HexData", &_HexData, 0, 0 ),
++        FUNCSPEC( NULL , NULL , 0 , 0 ),
      };
  
      // ----END global helpers ----
@@ -397,33 +376,27 @@ index 64fe21c..d496369 100644
 +#if JS_VERSION < 185
      JSBool bson_get_size(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+    JSBool bson_get_size(JSContext * cx , uintN argc, jsval *vp ) {
-+    	jsval *argv = JS_ARGV(cx, vp);
++    JSBool bson_get_size(JSContext * cx , uintN argc, jsval *rval ) {
++        jsval *argv = JS_ARGV(cx, rval);
 +#endif
          if ( argc != 1 || !JSVAL_IS_OBJECT( argv[ 0 ] ) ) {
              JS_ReportError( cx , "bsonsize requires one valid object" );
              return JS_FALSE;
-@@ -1064,7 +1187,11 @@ namespace mongo {
+@@ -1064,7 +1163,7 @@ namespace mongo {
          Convertor c(cx);
  
          if ( argv[0] == JSVAL_VOID || argv[0] == JSVAL_NULL ) {
-+#if JS_VERSION < 185
-             *rval = c.toval( 0.0 );
-+#else
-+        	JS_SET_RVAL(cx, vp, c.toval( 0.0 ));
-+#endif
+-            *rval = c.toval( 0.0 );
++            JS_SET_RVAL(cx, rval, c.toval( 0.0 ));
              return JS_TRUE;
          }
  
-@@ -1084,18 +1211,25 @@ namespace mongo {
+@@ -1084,18 +1183,23 @@ namespace mongo {
              size = temp.objsize();
          }
  
-+#if JS_VERSION < 185
-         *rval = c.toval( size );
-+#else
-+        JS_SET_RVAL(cx, vp, c.toval( size ));
-+#endif
+-        *rval = c.toval( size );
++        JS_SET_RVAL(cx, rval, c.toval( size ));
          return JS_TRUE;
      }
  
@@ -436,27 +409,28 @@ index 64fe21c..d496369 100644
  
      // end Object helpers
 -
+-    JSBool resolveBSONField( JSContext *cx, JSObject *obj, jsval id, uintN flags, JSObject **objp ) {
 +#if JS_VERSION < 185
-     JSBool resolveBSONField( JSContext *cx, JSObject *obj, jsval id, uintN flags, JSObject **objp ) {
++    JSBool resolveBSONField( JSContext *cx, JSObject *obj, jsval idval, uintN flags, JSObject **objp ) {
 +#else
-+	JSBool resolveBSONField( JSContext *cx, JSObject *obj, jsid id, uintN flags, JSObject **objp ) {
++    JSBool resolveBSONField( JSContext *cx, JSObject *obj, jsid id, uintN flags, JSObject **objp ) {
++        jsval idval;
++        assert(JS_IdToValue(cx, id, &idval));
 +#endif
          assert( JS_EnterLocalRootScope( cx ) );
          Convertor c( cx );
  
-@@ -1108,7 +1242,11 @@ namespace mongo {
+@@ -1108,8 +1212,7 @@ namespace mongo {
          }
          holder->check();
  
-+#if JS_VERSION < 185
-         string s = c.toString( id );
-+#else
-+        string s = c.toString( JSID_TO_STRING(id) );
-+#endif
- 
+-        string s = c.toString( id );
+-
++        string s = c.toString( idval );
          BSONElement e = holder->_obj[ s.c_str() ];
  
-@@ -1155,7 +1293,7 @@ namespace mongo {
+         if ( e.type() == EOO || holder->_removed.count( s ) ) {
+@@ -1155,7 +1258,7 @@ namespace mongo {
      public:
  
          SMEngine() {
@@ -465,7 +439,7 @@ index 64fe21c..d496369 100644
              JS_SetCStringsAreUTF8();
  #endif
  
-@@ -1225,7 +1363,11 @@ namespace mongo {
+@@ -1225,7 +1328,11 @@ namespace mongo {
              //JS_SetVersion( _context , JSVERSION_LATEST); TODO
              JS_SetErrorReporter( _context , errorReporter );
  
@@ -477,85 +451,70 @@ index 64fe21c..d496369 100644
              massert( 10432 ,  "JS_NewObject failed for global" , _global );
              JS_SetGlobalObject( _context , _global );
              massert( 10433 ,  "js init failed" , JS_InitStandardClasses( _context , _global ) );
-@@ -1245,13 +1387,19 @@ namespace mongo {
+@@ -1245,13 +1352,8 @@ namespace mongo {
              smlock;
              uassert( 10223 ,  "deleted SMScope twice?" , _convertor );
  
-+#if JS_VERSION < 185
-             for ( list<void*>::iterator i=_roots.begin(); i != _roots.end(); i++ ) {
-                 JS_RemoveRoot( _context , *i );
-             }
-             _roots.clear();
-+#endif
- 
+-            for ( list<void*>::iterator i=_roots.begin(); i != _roots.end(); i++ ) {
+-                JS_RemoveRoot( _context , *i );
+-            }
+-            _roots.clear();
+-
              if ( _this ) {
-+#if JS_VERSION < 185
-                 JS_RemoveRoot( _context , &_this );
-+#else
+-                JS_RemoveRoot( _context , &_this );
 +                JS_RemoveObjectRoot( _context , &_this );
-+#endif
                  _this = 0;
              }
  
-@@ -1273,17 +1421,23 @@ namespace mongo {
+@@ -1273,18 +1375,13 @@ namespace mongo {
              assert( _convertor );
              return;
              if ( _this ) {
-+#if JS_VERSION < 185
-                 JS_RemoveRoot( _context , &_this );
-+#else
+-                JS_RemoveRoot( _context , &_this );
 +                JS_RemoveObjectRoot( _context , &_this );
-+#endif
                  _this = 0;
              }
              currentScope.reset( this );
              _error = "";
          }
  
-+#if JS_VERSION < 185
-         void addRoot( void * root , const char * name ) {
-             JS_AddNamedRoot( _context , root , name );
-             _roots.push_back( root );
-         }
-+#endif
- 
+-        void addRoot( void * root , const char * name ) {
+-            JS_AddNamedRoot( _context , root , name );
+-            _roots.push_back( root );
+-        }
+-
          void init( const BSONObj * data ) {
              smlock;
-@@ -1422,13 +1576,21 @@ namespace mongo {
+             if ( ! data )
+@@ -1422,13 +1519,13 @@ namespace mongo {
          void setThis( const BSONObj * obj ) {
              smlock;
              if ( _this ) {
-+#if JS_VERSION < 185
-                 JS_RemoveRoot( _context , &_this );
-+#else
+-                JS_RemoveRoot( _context , &_this );
 +                JS_RemoveObjectRoot( _context , &_this );
-+#endif
                  _this = 0;
              }
  
              if ( obj ) {
                  _this = _convertor->toJSObject( obj );
-+#if JS_VERSION < 185
-                 JS_AddNamedRoot( _context , &_this , "scope this" );
-+#else
-+                JS_AddObjectRoot( _context , &_this );
-+#endif
+-                JS_AddNamedRoot( _context , &_this , "scope this" );
++                JS_AddNamedObjectRoot( _context , &_this , "scope this" );
              }
          }
  
-@@ -1483,7 +1645,11 @@ namespace mongo {
+@@ -1483,7 +1580,11 @@ namespace mongo {
  
          }
  
 +#if JS_VERSION < 185
          static JSBool interrupt( JSContext *cx, JSScript *script ) {
 +#else
-+		static JSBool interrupt( JSContext *cx, JSObject *script ) {
++        static JSBool interrupt( JSContext *cx, JSObject *script ) {
 +#endif
              return _interrupt( cx );
          }
  
-@@ -1494,7 +1660,7 @@ namespace mongo {
+@@ -1494,7 +1595,7 @@ namespace mongo {
                  spec->start = boost::posix_time::microsec_clock::local_time();
                  spec->count = 0;
                  JS_SetContextPrivate( _context, (void*)spec );
@@ -564,7 +523,7 @@ index 64fe21c..d496369 100644
                  JS_SetOperationCallback( _context, _interrupt );
  #else
                  JS_SetBranchCallback( _context, interrupt );
-@@ -1504,7 +1670,7 @@ namespace mongo {
+@@ -1504,7 +1605,7 @@ namespace mongo {
  
          void uninstallInterrupt( int timeoutMs ) {
              if ( timeoutMs != 0 || ScriptEngine::haveCheckInterruptCallback() ) {
@@ -573,35 +532,48 @@ index 64fe21c..d496369 100644
                  JS_SetOperationCallback( _context , 0 );
  #else
                  JS_SetBranchCallback( _context, 0 );
-@@ -1678,7 +1844,12 @@ namespace mongo {
+@@ -1649,7 +1750,6 @@ namespace mongo {
+         JSObject * _this;
+ 
+         string _error;
+-        list<void*> _roots;
+ 
+         bool _externalSetup;
+         bool _localConnect;
+@@ -1678,7 +1778,13 @@ namespace mongo {
          }
      }
  
 +#if JS_VERSION < 185
      JSBool native_load( JSContext *cx , JSObject *obj , uintN argc, jsval *argv , jsval *rval ) {
 +#else
-+	JSBool native_load( JSContext * cx , uintN argc, jsval *vp ) {
-+		jsval *argv = JS_ARGV(cx, vp);
++    JSBool native_load( JSContext * cx , uintN argc, jsval *rval ) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JS_SET_RVAL(cx, rval, JSVAL_VOID);
 +#endif
          Convertor c(cx);
  
          Scope * s = currentScope.get();
-@@ -1732,6 +1903,7 @@ namespace mongo {
+@@ -1731,19 +1837,6 @@ namespace mongo {
+     Scope * SMEngine::createScope() {
          return new SMScope();
      }
- 
-+#if JS_VERSION < 185
-     void Convertor::addRoot( JSFunction * f , const char * name ) {
-         if ( ! f )
-             return;
-@@ -1743,6 +1915,7 @@ namespace mongo {
-         assert( o );
-         scope->addRoot( &o , name );
-     }
-+#endif
- 
+-
+-    void Convertor::addRoot( JSFunction * f , const char * name ) {
+-        if ( ! f )
+-            return;
+-
+-        SMScope * scope = currentScope.get();
+-        uassert( 10229 ,  "need a scope" , scope );
+-
+-        JSObject * o = JS_GetFunctionObject( f );
+-        assert( o );
+-        scope->addRoot( &o , name );
+-    }
+-
  }
  
+ #include "sm_db.cpp"
 diff --git a/scripting/engine_spidermonkey.h b/scripting/engine_spidermonkey.h
 index 9fd430d..b90dae7 100644
 --- a/scripting/engine_spidermonkey.h
@@ -631,7 +603,7 @@ index 9fd430d..b90dae7 100644
  
      // mongo
 diff --git a/scripting/sm_db.cpp b/scripting/sm_db.cpp
-index 2a9169b..6bcf01f 100644
+index 2a9169b..2b4c4ec 100644
 --- a/scripting/sm_db.cpp
 +++ b/scripting/sm_db.cpp
 @@ -22,6 +22,11 @@
@@ -656,13 +628,13 @@ index 2a9169b..6bcf01f 100644
 +    extern JSClass internal_cursor_class;
 +
 +    JSBool internal_cursor_constructor( JSContext *cx, uintN argc, jsval *vp ) {
-+    	JSObject *obj = JS_NewObject(cx, &internal_cursor_class, NULL, NULL);
-+    	JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
++        JSObject *obj = JS_NewObject(cx, &internal_cursor_class, NULL, NULL);
++        JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
 +#endif
          uassert( 10236 ,  "no args to internal_cursor_constructor" , argc == 0 );
          assert( JS_SetPrivate( cx , obj , 0 ) ); // just for safety
          return JS_TRUE;
-@@ -93,10 +106,20 @@ namespace mongo {
+@@ -93,10 +106,16 @@ namespace mongo {
          }
      }
  
@@ -670,57 +642,48 @@ index 2a9169b..6bcf01f 100644
 +#if JS_VERSION < 185
      JSBool internal_cursor_hasNext(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+    JSBool internal_cursor_hasNext(JSContext *cx, uintN argc, jsval *vp) {
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
++    JSBool internal_cursor_hasNext(JSContext *cx, uintN argc, jsval *rval) {
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
 +#endif
          DBClientCursor *cursor = getCursor( cx, obj );
          try {
-+#if JS_VERSION < 185
-             *rval = cursor->more() ? JSVAL_TRUE : JSVAL_FALSE;
-+#else
-+        	JS_SET_RVAL(cx, vp, cursor->more() ? JSVAL_TRUE : JSVAL_FALSE);
-+#endif
+-            *rval = cursor->more() ? JSVAL_TRUE : JSVAL_FALSE;
++            JS_SET_RVAL(cx, rval, cursor->more() ? JSVAL_TRUE : JSVAL_FALSE);
          }
          catch ( std::exception& e ) {
              JS_ReportError( cx , e.what() );
-@@ -105,14 +128,28 @@ namespace mongo {
+@@ -105,14 +124,24 @@ namespace mongo {
          return JS_TRUE;
      }
  
 +#if JS_VERSION < 185
      JSBool internal_cursor_objsLeftInBatch(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+    JSBool internal_cursor_objsLeftInBatch(JSContext *cx, uintN argc, jsval *vp) {
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
++    JSBool internal_cursor_objsLeftInBatch(JSContext *cx, uintN argc, jsval *rval) {
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
 +#endif
          DBClientCursor *cursor = getCursor( cx, obj );
          Convertor c(cx);
-+#if JS_VERSION < 185
-         *rval = c.toval((double) cursor->objsLeftInBatch() );
-+#else
-+        JS_SET_RVAL(cx, vp, c.toval((double) cursor->objsLeftInBatch() ));
-+#endif
+-        *rval = c.toval((double) cursor->objsLeftInBatch() );
++        JS_SET_RVAL(cx, rval, c.toval((double) cursor->objsLeftInBatch() ));
          return JS_TRUE;
      }
  
 +#if JS_VERSION < 185
      JSBool internal_cursor_next(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+    JSBool internal_cursor_next(JSContext *cx, uintN argc, jsval *vp) {
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
++    JSBool internal_cursor_next(JSContext *cx, uintN argc, jsval *rval) {
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
 +#endif
          DBClientCursor *cursor = getCursor( cx, obj );
  
          BSONObj n;
-@@ -131,33 +168,48 @@ namespace mongo {
+@@ -131,33 +160,35 @@ namespace mongo {
          }
  
          Convertor c(cx);
-+#if JS_VERSION < 185
-         *rval = c.toval( &n );
-+#else
-+        JS_SET_RVAL(cx, vp, c.toval( &n ));
-+#endif
+-        *rval = c.toval( &n );
++        JS_SET_RVAL(cx, rval, c.toval( &n ));
          return JS_TRUE;
      }
  
@@ -729,15 +692,16 @@ index 2a9169b..6bcf01f 100644
 -        { "objsLeftInBatch" , internal_cursor_objsLeftInBatch , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
 -        { "next" , internal_cursor_next , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
 -        { 0 }
-+    	FUNCSPEC( "hasNext" , internal_cursor_hasNext , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
-+    	FUNCSPEC( "objsLeftInBatch" , internal_cursor_objsLeftInBatch , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
-+    	FUNCSPEC( "next" , internal_cursor_next , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
-+    	FUNCSPEC( NULL, NULL, 0, 0 ),
++        FUNCSPEC( "hasNext" , internal_cursor_hasNext , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
++        FUNCSPEC( "objsLeftInBatch" , internal_cursor_objsLeftInBatch , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
++        FUNCSPEC( "next" , internal_cursor_next , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
++        FUNCSPEC( NULL, NULL, 0, 0 ),
      };
  
      JSClass internal_cursor_class = {
-         "InternalCursor" , JSCLASS_HAS_PRIVATE  ,
+-        "InternalCursor" , JSCLASS_HAS_PRIVATE  ,
 -        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
++        "InternalCursor" , JSCLASS_HAS_PRIVATE ,
 +        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
          JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, internal_cursor_finalize,
          JSCLASS_NO_OPTIONAL_MEMBERS
@@ -746,47 +710,45 @@ index 2a9169b..6bcf01f 100644
  
      // ------ mongo stuff ------
 -
-+#if JS_VERSION < 185
-     JSBool mongo_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
-+#else
-+    JSBool mongo_constructor( JSContext *cx, uintN argc, jsval *vp ) {
-+#endif
-         uassert( 10237 ,  "mongo_constructor not implemented yet" , 0 );
-         throw -1;
-     }
- 
+-    JSBool mongo_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
+-        uassert( 10237 ,  "mongo_constructor not implemented yet" , 0 );
+-        throw -1;
+-    }
+-
 +#if JS_VERSION < 185
      JSBool mongo_local_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
 +#else
 +    extern JSClass mongo_class;
 +
-+    JSBool mongo_local_constructor(JSContext *cx, uintN argc, jsval *vp) {
-+    	JSObject *obj = JS_NewObject(cx, &mongo_class, NULL, NULL);
-+    	JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
++    JSBool mongo_local_constructor(JSContext *cx, uintN argc, jsval *rval) {
++        JSObject *obj = JS_NewObject(cx, &mongo_class, NULL, NULL);
++        JS_SET_RVAL(cx, rval, OBJECT_TO_JSVAL(obj));
 +#endif
          Convertor c( cx );
  
          shared_ptr< DBClientWithCommands > client( createDirectClient() );
-@@ -169,7 +221,14 @@ namespace mongo {
+@@ -169,7 +200,14 @@ namespace mongo {
          return JS_TRUE;
      }
  
 +#if JS_VERSION < 185
      JSBool mongo_external_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
 +#else
-+    JSBool mongo_external_constructor(JSContext *cx, uintN argc, jsval *vp ) {
-+    	jsval *argv = JS_ARGV(cx, vp);
-+    	JSObject *obj = JS_NewObject(cx, &mongo_class, NULL, NULL);
-+    	JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
++    JSBool mongo_external_constructor(JSContext *cx, uintN argc, jsval *rval ) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JSObject *obj = JS_NewObject(cx, &mongo_class, NULL, NULL);
++        JS_SET_RVAL(cx, rval, OBJECT_TO_JSVAL(obj));
 +#endif
          Convertor c( cx );
  
          smuassert( cx ,  "0 or 1 args to Mongo" , argc <= 1 );
-@@ -225,12 +284,18 @@ namespace mongo {
+@@ -224,13 +262,19 @@ namespace mongo {
+     }
  
      JSClass mongo_class = {
-         "Mongo" , JSCLASS_HAS_PRIVATE | JSCLASS_NEW_RESOLVE ,
+-        "Mongo" , JSCLASS_HAS_PRIVATE | JSCLASS_NEW_RESOLVE ,
 -        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
++        "Mongo" , JSCLASS_HAS_PRIVATE ,
 +        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
          JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, mongo_finalize,
          JSCLASS_NO_OPTIONAL_MEMBERS
@@ -795,69 +757,65 @@ index 2a9169b..6bcf01f 100644
 +#if JS_VERSION < 185
      JSBool mongo_find(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+    JSBool mongo_find(JSContext *cx, uintN argc, jsval *vp) {
-+    	jsval *argv = JS_ARGV(cx, vp);
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
++    JSBool mongo_find(JSContext *cx, uintN argc, jsval *rval) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
 +#endif
          smuassert( cx , "mongo_find needs 7 args" , argc == 7 );
          shared_ptr< DBClientWithCommands > * connHolder = (shared_ptr< DBClientWithCommands >*)JS_GetPrivate( cx , obj );
          smuassert( cx ,  "no connection!" , connHolder && connHolder->get() );
-@@ -260,7 +325,12 @@ namespace mongo {
+@@ -260,7 +304,7 @@ namespace mongo {
              JSObject * mycursor = JS_NewObject( cx , &internal_cursor_class , 0 , 0 );
              CHECKNEWOBJECT( mycursor, cx, "internal_cursor_class" );
              assert( JS_SetPrivate( cx , mycursor , new CursorHolder( cursor, *connHolder ) ) );
-+#if JS_VERSION < 185
-             *rval = OBJECT_TO_JSVAL( mycursor );
-+#else
-+            JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL( mycursor ));
-+#endif
-+
+-            *rval = OBJECT_TO_JSVAL( mycursor );
++            JS_SET_RVAL(cx, rval, OBJECT_TO_JSVAL( mycursor ));
              return JS_TRUE;
          }
          catch ( ... ) {
-@@ -269,7 +339,13 @@ namespace mongo {
+@@ -269,7 +313,13 @@ namespace mongo {
          }
      }
  
 +#if JS_VERSION < 185
      JSBool mongo_update(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+    JSBool mongo_update(JSContext *cx, uintN argc, jsval *vp) {
-+    	jsval *argv = JS_ARGV(cx, vp);
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
++    JSBool mongo_update(JSContext *cx, uintN argc, jsval *rval) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
 +#endif
          smuassert( cx ,  "mongo_find needs at elast 3 args" , argc >= 3 );
          smuassert( cx ,  "2nd param to update has to be an object" , JSVAL_IS_OBJECT( argv[1] ) );
          smuassert( cx ,  "3rd param to update has to be an object" , JSVAL_IS_OBJECT( argv[2] ) );
-@@ -298,7 +374,13 @@ namespace mongo {
+@@ -298,7 +348,13 @@ namespace mongo {
          }
      }
  
 +#if JS_VERSION < 185
      JSBool mongo_insert(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+    JSBool mongo_insert(JSContext *cx, uintN argc, jsval *vp) {
-+    	jsval *argv = JS_ARGV(cx, vp);
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
++    JSBool mongo_insert(JSContext *cx, uintN argc, jsval *rval) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
 +#endif
          smuassert( cx ,  "mongo_insert needs 2 args" , argc == 2 );
          smuassert( cx ,  "2nd param to insert has to be an object" , JSVAL_IS_OBJECT( argv[1] ) );
  
-@@ -333,7 +415,13 @@ namespace mongo {
+@@ -333,7 +389,13 @@ namespace mongo {
          }
      }
  
 +#if JS_VERSION < 185
      JSBool mongo_remove(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+    JSBool mongo_remove(JSContext *cx, uintN argc, jsval *vp) {
-+    	jsval *argv = JS_ARGV(cx, vp);
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
++    JSBool mongo_remove(JSContext *cx, uintN argc, jsval *rval) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
 +#endif
          smuassert( cx ,  "mongo_remove needs 2 or 3 arguments" , argc == 2 || argc == 3 );
          smuassert( cx ,  "2nd param to insert has to be an object" , JSVAL_IS_OBJECT( argv[1] ) );
  
-@@ -369,16 +457,24 @@ namespace mongo {
+@@ -369,16 +431,24 @@ namespace mongo {
      }
  
      JSFunctionSpec mongo_functions[] = {
@@ -866,11 +824,11 @@ index 2a9169b..6bcf01f 100644
 -        { "insert" , mongo_insert , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
 -        { "remove" , mongo_remove , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
 -        { 0 }
-+		FUNCSPEC( "find"   , mongo_find   , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
-+		FUNCSPEC( "update" , mongo_update , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
-+		FUNCSPEC( "insert" , mongo_insert , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
-+		FUNCSPEC( "remove" , mongo_remove , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
-+		FUNCSPEC( NULL, NULL, 0, 0 ),
++        FUNCSPEC( "find"   , mongo_find   , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
++        FUNCSPEC( "update" , mongo_update , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
++        FUNCSPEC( "insert" , mongo_insert , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
++        FUNCSPEC( "remove" , mongo_remove , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
++        FUNCSPEC( NULL, NULL, 0, 0 ),
      };
  
      // -------------  db_collection -------------
@@ -881,35 +839,37 @@ index 2a9169b..6bcf01f 100644
 +    extern JSClass db_collection_class;
 +
 +    JSBool db_collection_constructor(JSContext *cx, uintN argc, jsval *vp ) {
-+    		jsval *argv = JS_ARGV(cx, vp);
-+    		JSObject *obj = JS_NewObject(cx, &db_collection_class, NULL, NULL);
-+    		JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
++        jsval *argv = JS_ARGV(cx, vp);
++        JSObject *obj = JS_NewObject(cx, &db_collection_class, NULL, NULL);
++        JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
 +#endif
          smuassert( cx ,  "db_collection_constructor wrong args" , argc == 4 );
          assert( JS_SetProperty( cx , obj , "_mongo" , &(argv[0]) ) );
          assert( JS_SetProperty( cx , obj , "_db" , &(argv[1]) ) );
-@@ -394,12 +490,20 @@ namespace mongo {
+@@ -394,12 +464,20 @@ namespace mongo {
          return JS_TRUE;
      }
  
+-    JSBool db_collection_resolve( JSContext *cx, JSObject *obj, jsval id, uintN flags, JSObject **objp ) {
 +#if JS_VERSION < 185
-     JSBool db_collection_resolve( JSContext *cx, JSObject *obj, jsval id, uintN flags, JSObject **objp ) {
++    JSBool db_collection_resolve( JSContext *cx, JSObject *obj, jsval idval, uintN flags, JSObject **objp ) {
 +#else
 +    JSBool db_collection_resolve( JSContext *cx, JSObject *obj, jsid id, uintN flags, JSObject **objp ) {
++        jsval idval;
++        assert(JS_IdToValue(cx, id, &idval));
 +#endif
++        *objp = NULL;
++
          if ( flags & JSRESOLVE_ASSIGNING )
              return JS_TRUE;
  
          Convertor c( cx );
-+#if JS_VERSION < 185
-         string collname = c.toString( id );
-+#else
-+        string collname = c.toString( JSID_TO_STRING(id) );
-+#endif
+-        string collname = c.toString( id );
++        string collname = c.toString( idval );
  
          if ( isSpecialName( collname ) )
              return JS_TRUE;
-@@ -429,7 +533,7 @@ namespace mongo {
+@@ -429,7 +507,7 @@ namespace mongo {
  
      JSClass db_collection_class = {
          "DBCollection" , JSCLASS_HAS_PRIVATE | JSCLASS_NEW_RESOLVE ,
@@ -918,7 +878,7 @@ index 2a9169b..6bcf01f 100644
          JS_EnumerateStub, (JSResolveOp)(&db_collection_resolve) , JS_ConvertStub, JS_FinalizeStub,
          JSCLASS_NO_OPTIONAL_MEMBERS
      };
-@@ -460,9 +564,16 @@ namespace mongo {
+@@ -460,9 +538,16 @@ namespace mongo {
      }
  
      // --------------  DB ---------------
@@ -929,39 +889,41 @@ index 2a9169b..6bcf01f 100644
 +#else
 +    extern JSClass db_class;
 +
-+	JSBool db_constructor( JSContext *cx, uintN argc, jsval *vp ) {
-+		jsval *argv = JS_ARGV(cx, vp);
-+		JSObject *obj = JS_NewObject(cx, &db_class, NULL, NULL);
-+		JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
++    JSBool db_constructor( JSContext *cx, uintN argc, jsval *rval ) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JSObject *obj = JS_NewObject(cx, &db_class, NULL, NULL);
++        JS_SET_RVAL(cx, rval, OBJECT_TO_JSVAL(obj));
 +#endif
          smuassert( cx,  "wrong number of arguments to DB" , argc == 2 );
          assert( JS_SetProperty( cx , obj , "_mongo" , &(argv[0]) ) );
          assert( JS_SetProperty( cx , obj , "_name" , &(argv[1]) ) );
-@@ -470,7 +581,11 @@ namespace mongo {
+@@ -470,7 +555,15 @@ namespace mongo {
          return JS_TRUE;
      }
  
+-    JSBool db_resolve( JSContext *cx, JSObject *obj, jsval id, uintN flags, JSObject **objp ) {
 +#if JS_VERSION < 185
-     JSBool db_resolve( JSContext *cx, JSObject *obj, jsval id, uintN flags, JSObject **objp ) {
++    JSBool db_resolve( JSContext *cx, JSObject *obj, jsval idval, uintN flags, JSObject **objp ) {
 +#else
-+	JSBool db_resolve( JSContext *cx, JSObject *obj, jsid id, uintN flags, JSObject **objp ) {
++    JSBool db_resolve( JSContext *cx, JSObject *obj, jsid id, uintN flags, JSObject **objp ) {
++        jsval idval;
++        assert(JS_IdToValue(cx, id, &idval));
 +#endif
++        *objp = NULL;
++
          if ( flags & JSRESOLVE_ASSIGNING )
              return JS_TRUE;
  
-@@ -479,7 +594,11 @@ namespace mongo {
+@@ -479,7 +572,7 @@ namespace mongo {
          if ( obj == c.getGlobalPrototype( "DB" ) )
              return JS_TRUE;
  
-+#if JS_VERSION < 185
-         string collname = c.toString( id );
-+#else
-+        string collname = c.toString( JSID_TO_STRING(id) );
-+#endif
+-        string collname = c.toString( id );
++        string collname = c.toString( idval );
  
          if ( isSpecialName( collname ) )
              return JS_TRUE;
-@@ -499,15 +618,21 @@ namespace mongo {
+@@ -499,15 +592,20 @@ namespace mongo {
  
      JSClass db_class = {
          "DB" , JSCLASS_HAS_PRIVATE | JSCLASS_NEW_RESOLVE ,
@@ -977,27 +939,27 @@ index 2a9169b..6bcf01f 100644
 +#if JS_VERSION < 185
      JSBool object_id_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
 +#else
-+    JSBool object_id_constructor( JSContext *cx, uintN argc, jsval *vp) {
-+		jsval *argv = JS_ARGV(cx, vp);
-+    	JSObject *obj = JS_NewObject(cx, &object_id_class, NULL, NULL);
-+    	JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
++    JSBool object_id_constructor( JSContext *cx, uintN argc, jsval *rval) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JSObject *obj = NULL;
 +#endif
          Convertor c( cx );
  
          OID oid;
-@@ -532,7 +657,11 @@ namespace mongo {
-         if ( ! JS_InstanceOf( cx , obj , &object_id_class , 0 ) ) {
+@@ -529,10 +627,10 @@ namespace mongo {
+             oid.init( s );
+         }
+ 
+-        if ( ! JS_InstanceOf( cx , obj , &object_id_class , 0 ) ) {
++        if ( ! obj || ! JS_InstanceOf( cx , obj , &object_id_class , 0 ) ) {
              obj = JS_NewObject( cx , &object_id_class , 0 , 0 );
              CHECKNEWOBJECT( obj, cx, "object_id_constructor" );
-+#if JS_VERSION < 185
-             *rval = OBJECT_TO_JSVAL( obj );
-+#else
-+            JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL( obj ));
-+#endif
+-            *rval = OBJECT_TO_JSVAL( obj );
++            JS_SET_RVAL(cx, rval, OBJECT_TO_JSVAL( obj ));
          }
  
          jsval v = c.toval( oid.str().c_str() );
-@@ -543,24 +672,38 @@ namespace mongo {
+@@ -543,24 +641,36 @@ namespace mongo {
  
      JSClass object_id_class = {
          "ObjectId" , JSCLASS_HAS_PRIVATE ,
@@ -1009,22 +971,21 @@ index 2a9169b..6bcf01f 100644
  
 +#if JS_VERSION < 185
      JSBool object_id_tostring(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
-         Convertor c(cx);
-         return (JSBool) (*rval = c.getProperty( obj , "str" ));
 +#else
-+    JSBool object_id_tostring(JSContext *cx, uintN argc, jsval *vp) {
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
-+    	Convertor c(cx);
-+    	JS_SET_RVAL(cx, vp, c.getProperty( obj , "str" ));
-+    	return (JSBool) JS_RVAL(cx, vp);
++    JSBool object_id_tostring(JSContext *cx, uintN argc, jsval *rval) {
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
 +#endif
+         Convertor c(cx);
+-        return (JSBool) (*rval = c.getProperty( obj , "str" ));
++        JS_SET_RVAL(cx, rval, c.getProperty( obj , "str" ));
++        return (JSBool) JS_RVAL(cx, rval);
      }
  
      JSFunctionSpec object_id_functions[] = {
 -        { "toString" , object_id_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
 -        { 0 }
-+    	FUNCSPEC( "toString" , object_id_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
-+    	FUNCSPEC( NULL, NULL, 0, 0 )
++        FUNCSPEC( "toString" , object_id_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
++        FUNCSPEC( NULL, NULL, 0, 0 )
      };
  
      // dbpointer
@@ -1032,15 +993,15 @@ index 2a9169b..6bcf01f 100644
 +#if JS_VERSION < 185
      JSBool dbpointer_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
 +#else
-+    JSBool dbpointer_constructor( JSContext *cx, uintN argc, jsval *vp ) {
-+    	jsval *argv = JS_ARGV(cx, vp);
-+    	JSObject *obj = JS_NewObject(cx, &dbpointer_class, NULL, NULL);
-+    	JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
++    JSBool dbpointer_constructor( JSContext *cx, uintN argc, jsval *rval ) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JSObject *obj = JS_NewObject(cx, &dbpointer_class, NULL, NULL);
++        JS_SET_RVAL(cx, rval, OBJECT_TO_JSVAL(obj));
 +#endif
          Convertor c( cx );
  
          if ( argc == 2 ) {
-@@ -582,7 +725,7 @@ namespace mongo {
+@@ -582,7 +692,7 @@ namespace mongo {
  
      JSClass dbpointer_class = {
          "DBPointer" , JSCLASS_HAS_PRIVATE ,
@@ -1049,7 +1010,7 @@ index 2a9169b..6bcf01f 100644
          JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, JS_FinalizeStub,
          JSCLASS_NO_OPTIONAL_MEMBERS
      };
-@@ -591,8 +734,14 @@ namespace mongo {
+@@ -591,8 +701,14 @@ namespace mongo {
          { 0 }
      };
  
@@ -1057,15 +1018,15 @@ index 2a9169b..6bcf01f 100644
 +#if JS_VERSION < 185
      JSBool dbref_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
 +#else
-+    JSBool dbref_constructor( JSContext *cx, uintN argc, jsval *vp ) {
-+    	jsval *argv = JS_ARGV(cx, vp);
-+    	JSObject *obj = JS_NewObject(cx, &dbref_class, NULL, NULL);
-+    	JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
++    JSBool dbref_constructor( JSContext *cx, uintN argc, jsval *rval ) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JSObject *obj = JS_NewObject(cx, &dbref_class, NULL, NULL);
++        JS_SET_RVAL(cx, rval, OBJECT_TO_JSVAL(obj));
 +#endif
          Convertor c( cx );
  
          if ( argc == 2 ) {
-@@ -616,7 +765,16 @@ namespace mongo {
+@@ -616,7 +732,16 @@ namespace mongo {
      // UUID **************************
  
  #if 0
@@ -1074,40 +1035,37 @@ index 2a9169b..6bcf01f 100644
 +#else
 +    extern JSClass uuid_class;
 +
-+    JSBool uuid_constructor( JSContext *cx, uintN argc, jsval *vp ) {
-+    	jsval *argv = JS_ARGV(cx, vp);
-+    	JSObject *obj = JS_NewObject(cx, &uuid_class, NULL, NULL);
-+    	JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
++    JSBool uuid_constructor( JSContext *cx, uintN argc, jsval *rval ) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JSObject *obj = JS_NewObject(cx, &uuid_class, NULL, NULL);
++        JS_SET_RVAL(cx, rval, OBJECT_TO_JSVAL(obj));
 +#endif
          Convertor c( cx );
  
          if( argc == 0 ) {
-@@ -654,7 +812,12 @@ zzz
+@@ -654,7 +779,12 @@ zzz
          }
      }
  
 +#if JS_VERSION < 185
      JSBool uuid_tostring(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+    JSBool uuid_tostring(JSContext *cx, uintN argc, jsval *vp) {
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
++    JSBool uuid_tostring(JSContext *cx, uintN argc, jsval *rval) {
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
 +#endif
          Convertor c(cx);
          void *holder = JS_GetPrivate( cx, obj );
          assert( holder );
-@@ -663,7 +826,11 @@ zzz
+@@ -663,7 +793,7 @@ zzz
          ss << "UUID(\"" << toHex(data, 16);
          ss << "\")";
          string ret = ss.str();
-+#if JS_VERSION < 185
-         return *rval = c.toval( ret.c_str() );
-+#else
-+        return JS_SET_RVAL(cx, vp, c.toval( ret.c_str() ));
-+#endif
+-        return *rval = c.toval( ret.c_str() );
++        return JS_SET_RVAL(cx, rval, c.toval( ret.c_str() ));
      }
  
      void uuid_finalize( JSContext * cx , JSObject * obj ) {
-@@ -690,8 +857,14 @@ zzz
+@@ -690,8 +820,14 @@ zzz
  #endif
  
      // BinData **************************
@@ -1115,80 +1073,71 @@ index 2a9169b..6bcf01f 100644
 +#if JS_VERSION < 185
      JSBool bindata_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
 +#else
-+    JSBool bindata_constructor( JSContext *cx, uintN argc, jsval *vp ) {
-+    	jsval *argv = JS_ARGV(cx, vp);
-+    	JSObject *obj = JS_NewObject(cx, &bindata_class, NULL, NULL);
-+    	JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
++    JSBool bindata_constructor( JSContext *cx, uintN argc, jsval *rval ) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JSObject *obj = JS_NewObject(cx, &bindata_class, NULL, NULL);
++        JS_SET_RVAL(cx, rval, OBJECT_TO_JSVAL(obj));
 +#endif
          Convertor c( cx );
  
          if ( argc == 2 ) {
-@@ -723,7 +896,12 @@ zzz
+@@ -723,7 +859,12 @@ zzz
          }
      }
  
 +#if JS_VERSION < 185
      JSBool bindata_tostring(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+    JSBool bindata_tostring(JSContext *cx, uintN argc, jsval *vp) {
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
++    JSBool bindata_tostring(JSContext *cx, uintN argc, jsval *rval) {
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
 +#endif
          Convertor c(cx);
          int type = (int)c.getNumber( obj , "type" );
          int len = (int)c.getNumber( obj, "len" );
-@@ -735,10 +913,19 @@ zzz
+@@ -735,10 +876,15 @@ zzz
          base64::encode( ss, (const char *)data, len );
          ss << "\")";
          string ret = ss.str();
-+#if JS_VERSION < 185
-         return *rval = c.toval( ret.c_str() );
-+#else
-+        return JS_SET_RVAL(cx, vp, c.toval( ret.c_str() ));
-+#endif
+-        return *rval = c.toval( ret.c_str() );
++        return JS_SET_RVAL(cx, rval, c.toval( ret.c_str() ));
      }
  
 +#if JS_VERSION < 185
      JSBool bindataBase64(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+    JSBool bindataBase64(JSContext *cx, uintN argc, jsval *vp) {
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
++    JSBool bindataBase64(JSContext *cx, uintN argc, jsval *rval) {
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
 +#endif
          Convertor c(cx);
          int len = (int)c.getNumber( obj, "len" );
          void *holder = JS_GetPrivate( cx, obj );
-@@ -747,10 +934,19 @@ zzz
+@@ -747,10 +893,15 @@ zzz
          stringstream ss;
          base64::encode( ss, (const char *)data, len );
          string ret = ss.str();
-+#if JS_VERSION < 185
-         return *rval = c.toval( ret.c_str() );
-+#else
-+        return JS_SET_RVAL(cx, vp, c.toval( ret.c_str() ));
-+#endif
+-        return *rval = c.toval( ret.c_str() );
++        return JS_SET_RVAL(cx, rval, c.toval( ret.c_str() ));
      }
  
 +#if JS_VERSION < 185
      JSBool bindataAsHex(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+    JSBool bindataAsHex(JSContext *cx, uintN argc, jsval *vp) {
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
++    JSBool bindataAsHex(JSContext *cx, uintN argc, jsval *rval) {
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
 +#endif
          Convertor c(cx);
          int len = (int)c.getNumber( obj, "len" );
          void *holder = JS_GetPrivate( cx, obj );
-@@ -765,7 +961,11 @@ zzz
+@@ -765,7 +916,7 @@ zzz
              ss << setw(2) << v;
          }
          string ret = ss.str();
-+#if JS_VERSION < 185
-         return *rval = c.toval( ret.c_str() );
-+#else
-+        return JS_SET_RVAL(cx, vp, c.toval( ret.c_str() ));
-+#endif
+-        return *rval = c.toval( ret.c_str() );
++        return JS_SET_RVAL(cx, rval, c.toval( ret.c_str() ));
      }
  
      void bindata_finalize( JSContext * cx , JSObject * obj ) {
-@@ -779,16 +979,16 @@ zzz
+@@ -779,16 +930,16 @@ zzz
  
      JSClass bindata_class = {
          "BinData" , JSCLASS_HAS_PRIVATE ,
@@ -1203,14 +1152,14 @@ index 2a9169b..6bcf01f 100644
 -        { "hex", bindataAsHex, 0, JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
 -        { "base64", bindataBase64, 0, JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
 -        { 0 }
-+		FUNCSPEC( "toString" , bindata_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
-+		FUNCSPEC( "hex", bindataAsHex, 0, JSPROP_READONLY | JSPROP_PERMANENT ),
-+		FUNCSPEC( "base64", bindataBase64, 0, JSPROP_READONLY | JSPROP_PERMANENT ),
-+		FUNCSPEC( NULL, NULL, 0, 0 ),
++        FUNCSPEC( "toString" , bindata_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT ),
++        FUNCSPEC( "hex", bindataAsHex, 0, JSPROP_READONLY | JSPROP_PERMANENT ),
++        FUNCSPEC( "base64", bindataBase64, 0, JSPROP_READONLY | JSPROP_PERMANENT ),
++        FUNCSPEC( NULL, NULL, 0, 0 ),
      };
  
      // Map
-@@ -797,12 +997,23 @@ zzz
+@@ -797,12 +948,23 @@ zzz
          return s == "put" || s == "get" || s == "_get" || s == "values" || s == "_data" || s == "constructor" ;
      }
  
@@ -1219,7 +1168,7 @@ index 2a9169b..6bcf01f 100644
 +#else
 +    extern JSClass map_class;
 +
-+    JSBool map_constructor( JSContext *cx, uintN argc, jsval *vp) {
++    JSBool map_constructor( JSContext *cx, uintN argc, jsval *rval) {
 +#endif
          if ( argc > 0 ) {
              JS_ReportError( cx , "Map takes no arguments" );
@@ -1228,41 +1177,33 @@ index 2a9169b..6bcf01f 100644
  
 +#if JS_VERSION >= 185
 +        JSObject *obj = JS_NewObject(cx, &map_class, NULL, NULL);
-+        JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
++        JS_SET_RVAL(cx, rval, OBJECT_TO_JSVAL(obj));
 +#endif
 +
          JSObject * array = JS_NewObject( cx , 0 , 0 , 0 );
          CHECKNEWOBJECT( array, cx, "map_constructor" );
  
-@@ -812,19 +1023,42 @@ zzz
+@@ -812,7 +974,13 @@ zzz
          return JS_TRUE;
      }
  
 +#if JS_VERSION < 185
      JSBool map_prop( JSContext *cx, JSObject *obj, jsval idval, jsval *vp ) {
 +#else
-+    JSBool map_prop_strict( JSContext *cx, JSObject *obj, jsid id, JSBool strict, jsval *vp ) {
++    JSBool map_prop( JSContext *cx, JSObject *obj, jsid id, jsval *vp ) {
++        jsval idval;
++        assert(JS_IdToValue(cx, id, &idval));
 +#endif
          Convertor c(cx);
-+#if JS_VERSION < 185
          if ( specialMapString( c.toString( idval ) ) )
-+#else
-+        if ( specialMapString( c.toString( JSID_TO_STRING(id) ) ) )
-+#endif
              return JS_TRUE;
- 
-+#if JS_VERSION < 185
-         log() << "illegal prop access: " << c.toString( idval ) << endl;
-+#else
-+        log() << "illegal prop access: " << c.toString( JSID_TO_STRING(id) ) << endl;
-+#endif
-         JS_ReportError( cx , "can't use array access with Map" );
+@@ -822,9 +990,20 @@ zzz
          return JS_FALSE;
      }
  
 +#if JS_VERSION >= 185
-+    JSBool map_prop( JSContext *cx, JSObject *obj, jsid id, jsval *vp ) {
-+    	return map_prop_strict( cx , obj , id , JS_FALSE , vp );
++    JSBool map_prop_strict( JSContext *cx, JSObject *obj, jsid id, JSBool strict, jsval *vp ) {
++        return map_prop( cx , obj , id , vp );
 +    }
 +#endif
 +
@@ -1278,7 +1219,7 @@ index 2a9169b..6bcf01f 100644
          JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, JS_FinalizeStub,
          JSCLASS_NO_OPTIONAL_MEMBERS
      };
-@@ -838,18 +1072,33 @@ zzz
+@@ -838,18 +1017,25 @@ zzz
  
      JSClass timestamp_class = {
          "Timestamp" , JSCLASS_HAS_PRIVATE ,
@@ -1291,29 +1232,23 @@ index 2a9169b..6bcf01f 100644
 +#if JS_VERSION < 185
      JSBool timestamp_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
 +#else
-+    JSBool timestamp_constructor( JSContext *cx, uintN argc, jsval *vp ) {
-+    	jsval *argv = JS_ARGV(cx, vp);
++    JSBool timestamp_constructor( JSContext *cx, uintN argc, jsval *rval ) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JSObject *obj = NULL;
 +#endif
 +
          smuassert( cx , "Timestamp needs 0 or 2 args" , argc == 0 || argc == 2 );
  
-+#if JS_VERSION >= 185
-+        JSObject *obj = JS_NewObject(cx, &timestamp_class, NULL, NULL);
-+        JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
-+#endif
-+
-         if ( ! JS_InstanceOf( cx , obj , &timestamp_class , 0 ) ) {
+-        if ( ! JS_InstanceOf( cx , obj , &timestamp_class , 0 ) ) {
++        if ( ! obj || ! JS_InstanceOf( cx , obj , &timestamp_class , 0 ) ) {
              obj = JS_NewObject( cx , &timestamp_class , 0 , 0 );
              CHECKNEWOBJECT( obj, cx, "timestamp_constructor" );
-+#if JS_VERSION < 185
-             *rval = OBJECT_TO_JSVAL( obj );
-+#else
-+            JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL( obj ));
-+#endif
+-            *rval = OBJECT_TO_JSVAL( obj );
++            JS_SET_RVAL(cx, rval, OBJECT_TO_JSVAL( obj ));
          }
  
          Convertor c( cx );
-@@ -868,18 +1117,33 @@ zzz
+@@ -868,18 +1054,25 @@ zzz
  
      JSClass numberlong_class = {
          "NumberLong" , JSCLASS_HAS_PRIVATE ,
@@ -1326,71 +1261,61 @@ index 2a9169b..6bcf01f 100644
 +#if JS_VERSION < 185
      JSBool numberlong_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
 +#else
-+    JSBool numberlong_constructor( JSContext *cx, uintN argc, jsval *vp ) {
-+    	jsval *argv = JS_ARGV(cx, vp);
++    JSBool numberlong_constructor( JSContext *cx, uintN argc, jsval *rval ) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JSObject *obj = NULL;
 +#endif
 +
          smuassert( cx , "NumberLong needs 0 or 1 args" , argc == 0 || argc == 1 );
  
-+#if JS_VERSION >= 185
-+        JSObject *obj = JS_NewObject(cx, &numberlong_class, NULL, NULL);
-+        JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
-+#endif
-+
-         if ( ! JS_InstanceOf( cx , obj , &numberlong_class , 0 ) ) {
+-        if ( ! JS_InstanceOf( cx , obj , &numberlong_class , 0 ) ) {
++        if ( ! obj || ! JS_InstanceOf( cx , obj , &numberlong_class , 0 ) ) {
              obj = JS_NewObject( cx , &numberlong_class , 0 , 0 );
              CHECKNEWOBJECT( obj, cx, "numberlong_constructor" );
-+#if JS_VERSION < 185
-             *rval = OBJECT_TO_JSVAL( obj );
-+#else
-+            JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL( obj ));
-+#endif
+-            *rval = OBJECT_TO_JSVAL( obj );
++            JS_SET_RVAL(cx, rval, OBJECT_TO_JSVAL( obj ));
          }
  
          Convertor c( cx );
-@@ -907,16 +1171,33 @@ zzz
+@@ -907,16 +1100,31 @@ zzz
          return JS_TRUE;
      }
  
 +#if JS_VERSION < 185
      JSBool numberlong_valueof(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
-         Convertor c(cx);
-         return *rval = c.toval( double( c.toNumberLongUnsafe( obj ) ) );
 +#else
-+    JSBool numberlong_valueof(JSContext *cx, uintN argc, jsval *vp) {
-+        Convertor c(cx);
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
-+        return JS_SET_RVAL(cx, vp, c.toval( double( c.toNumberLongUnsafe( obj ) ) ));
++    JSBool numberlong_valueof(JSContext *cx, uintN argc, jsval *rval) {
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
 +#endif
+         Convertor c(cx);
+-        return *rval = c.toval( double( c.toNumberLongUnsafe( obj ) ) );
++        return JS_SET_RVAL(cx, rval, c.toval( double( c.toNumberLongUnsafe( obj ) ) ));
      }
  
 +#if JS_VERSION < 185
      JSBool numberlong_tonumber(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
          return numberlong_valueof( cx, obj, argc, argv, rval );
 +#else
-+    JSBool numberlong_tonumber(JSContext *cx, uintN argc, jsval *vp) {
-+        return numberlong_valueof( cx, argc, vp );
++    JSBool numberlong_tonumber(JSContext *cx, uintN argc, jsval *rval) {
++        return numberlong_valueof( cx, argc, rval );
 +#endif
      }
  
 +#if JS_VERSION < 185
      JSBool numberlong_tostring(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+    JSBool numberlong_tostring(JSContext *cx, uintN argc, jsval *vp) {
-+    	JSObject *obj = JS_THIS_OBJECT(cx, vp);
++    JSBool numberlong_tostring(JSContext *cx, uintN argc, jsval *rval) {
++        JSObject *obj = JS_THIS_OBJECT(cx, rval);
 +#endif
          Convertor c(cx);
          stringstream ss;
          long long val = c.toNumberLongUnsafe( obj );
-@@ -928,30 +1209,48 @@ zzz
+@@ -928,30 +1136,36 @@ zzz
              ss << "NumberLong(" << val << ")";
  
          string ret = ss.str();
-+#if JS_VERSION < 185
-         return *rval = c.toval( ret.c_str() );
-+#else
-+        return JS_SET_RVAL(cx, vp, c.toval( ret.c_str() ));
-+#endif
+-        return *rval = c.toval( ret.c_str() );
++        return JS_SET_RVAL(cx, rval, c.toval( ret.c_str() ));
      }
  
      JSFunctionSpec numberlong_functions[] = {
@@ -1415,83 +1340,69 @@ index 2a9169b..6bcf01f 100644
 +#if JS_VERSION < 185
      JSBool numberint_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
 +#else
-+    JSBool numberint_constructor( JSContext *cx, uintN argc, jsval *vp ) {
-+    	jsval *argv = JS_ARGV(cx, vp);
++    JSBool numberint_constructor( JSContext *cx, uintN argc, jsval *rval ) {
++        jsval *argv = JS_ARGV(cx, rval);
++        JSObject *obj = NULL;
 +#endif
          smuassert( cx , "NumberInt needs 0 or 1 args" , argc == 0 || argc == 1 );
  
-+#if JS_VERSION >= 185
-+        JSObject *obj = JS_NewObject(cx, &numberlong_class, NULL, NULL);
-+        JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
-+#endif
-+
-         if ( ! JS_InstanceOf( cx , obj , &numberint_class , 0 ) ) {
+-        if ( ! JS_InstanceOf( cx , obj , &numberint_class , 0 ) ) {
++        if ( ! obj || ! JS_InstanceOf( cx , obj , &numberint_class , 0 ) ) {
              obj = JS_NewObject( cx , &numberint_class , 0 , 0 );
              CHECKNEWOBJECT( obj, cx, "numberint_constructor" );
-+#if JS_VERSION < 185
-             *rval = OBJECT_TO_JSVAL( obj );
-+#else
-+            JS_SET_RVAL( cx, vp, OBJECT_TO_JSVAL( obj ) );
-+#endif
+-            *rval = OBJECT_TO_JSVAL( obj );
++            JS_SET_RVAL( cx, rval, OBJECT_TO_JSVAL( obj ) );
          }
  
          Convertor c( cx );
-@@ -979,57 +1278,99 @@ zzz
+@@ -979,57 +1193,89 @@ zzz
          return JS_TRUE;
      }
  
 +#if JS_VERSION < 185
      JSBool numberint_valueof(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
-         Convertor c(cx);
-         return *rval = c.toval( double( c.toNumberInt( obj ) ) );
 +#else
-+	JSBool numberint_valueof(JSContext *cx, uintN argc, jsval *vp) {
-+    	JSObject *obj = JS_THIS_OBJECT( cx , vp );
-+    	Convertor c(cx);
-+    	return JS_SET_RVAL( cx , vp , c.toval( double( c.toNumberInt( obj ) ) ) );
++    JSBool numberint_valueof(JSContext *cx, uintN argc, jsval *rval) {
++        JSObject *obj = JS_THIS_OBJECT( cx , rval );
 +#endif
+         Convertor c(cx);
+-        return *rval = c.toval( double( c.toNumberInt( obj ) ) );
++        return JS_SET_RVAL( cx , rval , c.toval( double( c.toNumberInt( obj ) ) ) );
      }
  
 +#if JS_VERSION < 185
      JSBool numberint_tonumber(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
          return numberint_valueof( cx, obj, argc, argv, rval );
 +#else
-+	JSBool numberint_tonumber(JSContext *cx, uintN argc, jsval *vp) {
-+		return numberint_valueof( cx, argc, vp );
++    JSBool numberint_tonumber(JSContext *cx, uintN argc, jsval *rval) {
++        return numberint_valueof( cx, argc, rval );
 +#endif
      }
  
 +#if JS_VERSION < 185
      JSBool numberint_tostring(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+	JSBool numberint_tostring(JSContext *cx, uintN argc, jsval *vp) {
-+		JSObject *obj = JS_THIS_OBJECT( cx , vp );
++    JSBool numberint_tostring(JSContext *cx, uintN argc, jsval *rval) {
++        JSObject *obj = JS_THIS_OBJECT( cx , rval );
 +#endif
          Convertor c(cx);
          int val = c.toNumberInt( obj );
          string ret = str::stream() << "NumberInt(" << val << ")";
-+#if JS_VERSION < 185
-         return *rval = c.toval( ret.c_str() );
-+#else
-+        return JS_SET_RVAL( cx, vp, c.toval( ret.c_str() ) );
-+#endif
+-        return *rval = c.toval( ret.c_str() );
++        return JS_SET_RVAL( cx, rval, c.toval( ret.c_str() ) );
      }
  
--    JSBool numberint_tojson(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#if JS_VERSION < 185
-+	JSBool numberint_tojson(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+     JSBool numberint_tojson(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 +#else
-+	JSBool numberint_tojson(JSContext *cx, uintN argc, jsval *vp) {
-+		JSObject *obj = JS_THIS_OBJECT( cx , vp );
++    JSBool numberint_tojson(JSContext *cx, uintN argc, jsval *rval) {
++        JSObject *obj = JS_THIS_OBJECT( cx , rval );
 +#endif
          Convertor c(cx);
          int val = c.toNumberInt( obj );
          string ret = str::stream() << val;
-+#if JS_VERSION < 185
-         return *rval = c.toval( ret.c_str() );
-+#else
-+        return JS_SET_RVAL( cx, vp, c.toval( ret.c_str() ) );
-+#endif
+-        return *rval = c.toval( ret.c_str() );
++        return JS_SET_RVAL( cx, rval, c.toval( ret.c_str() ) );
      }
  
 -
@@ -1501,11 +1412,11 @@ index 2a9169b..6bcf01f 100644
 -        { "toString" , numberint_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
 -        { "tojson" , numberint_tojson , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
 -        { 0 }
-+		FUNCSPEC( "valueOf"  , numberint_valueof  , 0 , JSPROP_READONLY | JSPROP_PERMANENT ) ,
-+		FUNCSPEC( "toNumber" , numberint_tonumber , 0 , JSPROP_READONLY | JSPROP_PERMANENT ) ,
-+		FUNCSPEC( "toString" , numberint_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT ) ,
-+		FUNCSPEC( "tojson"   , numberint_tojson   , 0 , JSPROP_READONLY | JSPROP_PERMANENT ) ,
-+		FUNCSPEC( NULL , NULL , 0 , 0 )
++        FUNCSPEC( "valueOf"  , numberint_valueof  , 0 , JSPROP_READONLY | JSPROP_PERMANENT ) ,
++        FUNCSPEC( "toNumber" , numberint_tonumber , 0 , JSPROP_READONLY | JSPROP_PERMANENT ) ,
++        FUNCSPEC( "toString" , numberint_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT ) ,
++        FUNCSPEC( "tojson"   , numberint_tojson   , 0 , JSPROP_READONLY | JSPROP_PERMANENT ) ,
++        FUNCSPEC( NULL , NULL , 0 , 0 )
      };
  
      JSClass minkey_class = {
@@ -1531,53 +1442,48 @@ index 2a9169b..6bcf01f 100644
 +#else
 +    extern JSClass dbquery_class;
 +
-+    JSBool dbquery_constructor( JSContext *cx, uintN argc, jsval *vp ) {
-+		jsval *argv = JS_ARGV(cx, vp);
++    JSBool dbquery_constructor( JSContext *cx, uintN argc, jsval *rval ) {
++        jsval *argv = JS_ARGV(cx, rval);
 +#endif
 +
          smuassert( cx ,  "DDQuery needs at least 4 args" , argc >= 4 );
  
 +#if JS_VERSION >= 185
-+    	JSObject *obj = JS_NewObject(cx, &dbquery_class, NULL, NULL);
-+    	JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
++        JSObject *obj = JS_NewObject(cx, &dbquery_class, NULL, NULL);
++        JS_SET_RVAL(cx, rval, OBJECT_TO_JSVAL(obj));
 +#endif
 +
          Convertor c(cx);
          c.setProperty( obj , "_mongo" , argv[0] );
          c.setProperty( obj , "_db" , argv[1] );
-@@ -1078,24 +1419,41 @@ zzz
+@@ -1078,24 +1324,33 @@ zzz
          return JS_TRUE;
      }
  
+-    JSBool dbquery_resolve( JSContext *cx, JSObject *obj, jsval id, uintN flags, JSObject **objp ) {
 +#if JS_VERSION < 185
-     JSBool dbquery_resolve( JSContext *cx, JSObject *obj, jsval id, uintN flags, JSObject **objp ) {
++    JSBool dbquery_resolve( JSContext *cx, JSObject *obj, jsval idval, uintN flags, JSObject **objp ) {
 +#else
 +    JSBool dbquery_resolve( JSContext *cx, JSObject *obj, jsid id, uintN flags, JSObject **objp ) {
++        jsval idval;
++        assert(JS_IdToValue(cx, id, &idval));
 +#endif
++        *objp = NULL;
++
          if ( flags & JSRESOLVE_ASSIGNING )
              return JS_TRUE;
  
-+#if JS_VERSION < 185
-         if ( ! JSVAL_IS_NUMBER( id ) )
-+#else
-+        jsval arg;
-+        assert( JS_IdToValue(cx, id, &arg) );
-+
-+        if ( ! JSVAL_IS_NUMBER( arg ) )
-+#endif
+-        if ( ! JSVAL_IS_NUMBER( id ) )
++        if ( ! JSVAL_IS_NUMBER( idval ) )
              return JS_TRUE;
  
          jsval val = JSVAL_VOID;
 -        assert( JS_CallFunctionName( cx , obj , "arrayAccess" , 1 , &id , &val ) );
 +
          Convertor c(cx);
-+#if JS_VERSION < 185
-+        assert( JS_CallFunctionName( cx , obj , "arrayAccess" , 1 , &id , &val ) );
-         c.setProperty( obj , c.toString( id ).c_str() , val );
-+#else
-+        assert( JS_CallFunctionName( cx , obj , "arrayAccess" , 1 , &arg, &val ) );
-+        c.setProperty( obj , c.toString( arg ).c_str() , val );
-+#endif
+-        c.setProperty( obj , c.toString( id ).c_str() , val );
++        assert( JS_CallFunctionName( cx , obj , "arrayAccess" , 1 , &idval , &val ) );
++        c.setProperty( obj , c.toString( idval ).c_str() , val );
          *objp = obj;
          return JS_TRUE;
      }
@@ -1589,7 +1495,7 @@ index 2a9169b..6bcf01f 100644
          JS_EnumerateStub, (JSResolveOp)(&dbquery_resolve) , JS_ConvertStub, JS_FinalizeStub,
          JSCLASS_NO_OPTIONAL_MEMBERS
      };
-@@ -1198,7 +1556,11 @@ zzz
+@@ -1198,7 +1453,11 @@ zzz
              return true;
          }
  #else
@@ -1601,7 +1507,7 @@ index 2a9169b..6bcf01f 100644
              jsdouble d = js_DateGetMsecSinceEpoch( c->_context , o );
              long long d2 = (long long)d;
              b.appendDate( name , Date_t((unsigned long long)d2) );
-@@ -1232,6 +1594,8 @@ zzz
+@@ -1232,6 +1491,8 @@ zzz
      bool isDate( JSContext * cx , JSObject * o ) {
  #if defined( SM16 ) || defined( MOZJS ) || defined( XULRUNNER )
          return js_DateGetMsecSinceEpoch( cx , o ) != 0;

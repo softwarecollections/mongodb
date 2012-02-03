@@ -5,7 +5,7 @@
 
 Name:           mongodb
 Version:        2.0.2
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -271,6 +271,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Fri Feb 03 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-6
+- Clean up mongodb-src-r2.0.2-js.patch and fix #787246
+
 * Tue Jan 17 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-5
 - Enable build using external snappy
 
