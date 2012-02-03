@@ -5,7 +5,7 @@
 
 Name:           mongodb
 Version:        2.0.2
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -41,8 +41,6 @@ BuildRequires:  js-devel
 BuildRequires:  readline-devel
 BuildRequires:  libpcap-devel
 BuildRequires:  snappy-devel
-# to run tests
-BuildRequires:  unittest
 
 %if 0%{?fedora} >= 15
 Requires(post): systemd-units
@@ -271,6 +269,10 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Fri Feb 03 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-7
+- Enable journaling by default (#656112)
+- Remove BuildRequires on unittest (#755081)
+
 * Fri Feb 03 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-6
 - Clean up mongodb-src-r2.0.2-js.patch and fix #787246
 
