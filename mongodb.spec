@@ -5,7 +5,7 @@
 
 Name:           mongodb
 Version:        2.0.2
-Release:        9%{?dist}
+Release:        10%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -269,6 +269,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Tue Feb 28 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.0.2-10
+- Rebuilt for c++ ABI breakage
+
 * Fri Feb 10 2012 Petr Pisar <ppisar@redhat.com> - 2.0.2-9
 - Rebuild against PCRE 8.30
 
