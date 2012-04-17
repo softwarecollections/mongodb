@@ -4,8 +4,8 @@
 %global         daemon mongod
 
 Name:           mongodb
-Version:        2.0.2
-Release:        10%{?dist}
+Version:        2.0.4
+Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -27,10 +27,6 @@ Patch2:         mongodb-fix-fork.patch
 Patch3:         mongodb-fix-pcre.patch
 # https://github.com/mongodb/mongo/pull/160
 Patch4:         mongodb-src-r2.0.2-js.patch
-# https://jira.mongodb.org/browse/SERVER-4591
-Patch5:         mongodb-fix-oldpython.patch
-# https://jira.mongodb.org/browse/SERVER-4634
-Patch6:         mongodb-enable-external-snappy.patch
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires:  python-devel
@@ -114,8 +110,6 @@ software, default configuration files, and init scripts.
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
-%patch5 -p1
-%patch6 -p1
 
 # spurious permissions
 chmod -x README
@@ -269,6 +263,11 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Tue Apr 17 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.4-1
+- Update to 2.0.4
+- Remove oldpython patch (fixed upstream)
+- Remove snappy patch (fixed upstream)
+
 * Tue Feb 28 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.0.2-10
 - Rebuilt for c++ ABI breakage
 
