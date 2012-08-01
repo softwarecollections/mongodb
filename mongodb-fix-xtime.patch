@@ -1,0 +1,102 @@
+diff -Nru mongodb-src-r2.0.6.orig/util/background.cpp mongodb-src-r2.0.6/util/background.cpp
+--- mongodb-src-r2.0.6.orig/util/background.cpp	2012-06-04 09:42:54.000000000 -0400
++++ mongodb-src-r2.0.6/util/background.cpp	2012-08-01 16:38:45.664540031 -0400
+@@ -89,7 +89,7 @@
+             if ( msTimeOut ) {
+                 // add msTimeOut millisecond to current time
+                 boost::xtime xt;
+-                boost::xtime_get( &xt, boost::TIME_UTC );
++                xt = boost::get_xtime(boost::get_system_time());
+ 
+                 unsigned long long ns = msTimeOut * 1000000ULL; // milli to nano
+                 if ( xt.nsec + ns < 1000000000 ) {
+diff -Nru mongodb-src-r2.0.6.orig/util/concurrency/mutex.h mongodb-src-r2.0.6/util/concurrency/mutex.h
+--- mongodb-src-r2.0.6.orig/util/concurrency/mutex.h	2012-06-04 09:42:54.000000000 -0400
++++ mongodb-src-r2.0.6/util/concurrency/mutex.h	2012-08-01 16:38:45.659540017 -0400
+@@ -29,7 +29,7 @@
+ 
+     inline boost::xtime incxtimemillis( long long s ) {
+         boost::xtime xt;
+-        boost::xtime_get(&xt, boost::TIME_UTC);
++        xt = boost::get_xtime(boost::get_system_time());
+         xt.sec += (int)( s / 1000 );
+         xt.nsec += (int)(( s % 1000 ) * 1000000);
+         if ( xt.nsec >= 1000000000 ) {
+diff -Nru mongodb-src-r2.0.6.orig/util/queue.h mongodb-src-r2.0.6/util/queue.h
+--- mongodb-src-r2.0.6.orig/util/queue.h	2012-06-04 09:42:54.000000000 -0400
++++ mongodb-src-r2.0.6/util/queue.h	2012-08-01 16:38:45.648539990 -0400
+@@ -82,7 +82,7 @@
+             Timer timer;
+ 
+             boost::xtime xt;
+-            boost::xtime_get(&xt, boost::TIME_UTC);
++            xt = boost::get_xtime(boost::get_system_time());
+             xt.sec += maxSecondsToWait;
+ 
+             scoped_lock l( _lock );
+diff -Nru mongodb-src-r2.0.6.orig/util/time_support.h mongodb-src-r2.0.6/util/time_support.h
+--- mongodb-src-r2.0.6.orig/util/time_support.h	2012-06-04 09:42:54.000000000 -0400
++++ mongodb-src-r2.0.6/util/time_support.h	2012-08-01 16:38:45.653540003 -0400
+@@ -106,7 +106,7 @@
+         if ( s <= 0 )
+             return;
+         boost::xtime xt;
+-        boost::xtime_get(&xt, boost::TIME_UTC);
++        xt = boost::get_xtime(boost::get_system_time());
+         xt.sec += (int)( s / 1000000 );
+         xt.nsec += (int)(( s % 1000000 ) * 1000);
+         if ( xt.nsec >= 1000000000 ) {
+@@ -118,13 +118,13 @@
+ #elif defined(__sunos__)
+     inline void sleepsecs(int s) {
+         boost::xtime xt;
+-        boost::xtime_get(&xt, boost::TIME_UTC);
++        xt = boost::get_xtime(boost::get_system_time());
+         xt.sec += s;
+         boost::thread::sleep(xt);
+     }
+     inline void sleepmillis(long long s) {
+         boost::xtime xt;
+-        boost::xtime_get(&xt, boost::TIME_UTC);
++        xt = boost::get_xtime(boost::get_system_time());
+         xt.sec += (int)( s / 1000 );
+         xt.nsec += (int)(( s % 1000 ) * 1000000);
+         if ( xt.nsec >= 1000000000 ) {
+@@ -137,7 +137,7 @@
+         if ( s <= 0 )
+             return;
+         boost::xtime xt;
+-        boost::xtime_get(&xt, boost::TIME_UTC);
++        xt = boost::get_xtime(boost::get_system_time());
+         xt.sec += (int)( s / 1000000 );
+         xt.nsec += (int)(( s % 1000000 ) * 1000);
+         if ( xt.nsec >= 1000000000 ) {
+@@ -202,24 +202,24 @@
+ #ifdef _WIN32 // no gettimeofday on windows
+     inline unsigned long long curTimeMillis64() {
+         boost::xtime xt;
+-        boost::xtime_get(&xt, boost::TIME_UTC);
++        xt = boost::get_xtime(boost::get_system_time());
+         return ((unsigned long long)xt.sec) * 1000 + xt.nsec / 1000000;
+     }
+     inline Date_t jsTime() {
+         boost::xtime xt;
+-        boost::xtime_get(&xt, boost::TIME_UTC);
++        xt = boost::get_xtime(boost::get_system_time());
+         unsigned long long t = xt.nsec / 1000000;
+         return ((unsigned long long) xt.sec * 1000) + t + getJSTimeVirtualSkew() + getJSTimeVirtualThreadSkew();
+     }
+     inline unsigned long long curTimeMicros64() {
+         boost::xtime xt;
+-        boost::xtime_get(&xt, boost::TIME_UTC);
++        xt = boost::get_xtime(boost::get_system_time());
+         unsigned long long t = xt.nsec / 1000;
+         return (((unsigned long long) xt.sec) * 1000000) + t;
+     }    
+     inline unsigned curTimeMicros() {
+         boost::xtime xt;
+-        boost::xtime_get(&xt, boost::TIME_UTC);
++        xt = boost::get_xtime(boost::get_system_time());
+         unsigned t = xt.nsec / 1000;
+         unsigned secs = xt.sec % 1024;
+         return secs*1000000 + t;

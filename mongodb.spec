@@ -4,8 +4,8 @@
 %global         daemon mongod
 
 Name:           mongodb
-Version:        2.0.4
-Release:        2%{?dist}
+Version:        2.0.6
+Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -27,6 +27,7 @@ Patch2:         mongodb-fix-fork.patch
 Patch3:         mongodb-fix-pcre.patch
 # https://github.com/mongodb/mongo/pull/160
 Patch4:         mongodb-src-r2.0.2-js.patch
+Patch5:         mongodb-fix-xtime.patch
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires:  python-devel
@@ -110,6 +111,7 @@ software, default configuration files, and init scripts.
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
+%patch5 -p1
 
 # spurious permissions
 chmod -x README
@@ -263,6 +265,11 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Wed Aug 01 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.6-1
+- Update to 2.0.6
+- Update no-term patch
+- Add fix-xtime patch for new boost
+
 * Fri Jul 20 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.0.4-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_18_Mass_Rebuild
 
