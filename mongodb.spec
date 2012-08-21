@@ -1,11 +1,8 @@
-# Make sure initddir is defined on el5 and possibly other distros
-%{!?_initddir: %define _initddir %{_initrddir}}
-
 %global         daemon mongod
 
 Name:           mongodb
 Version:        2.0.6
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -27,9 +24,10 @@ Patch2:         mongodb-fix-fork.patch
 Patch3:         mongodb-fix-pcre.patch
 # https://github.com/mongodb/mongo/pull/160
 Patch4:         mongodb-src-r2.0.2-js.patch
-%if 0%{?el5} == 0
+# https://jira.mongodb.org/browse/SERVER-6686
 Patch5:         mongodb-fix-xtime.patch
-%endif
+# https://jira.mongodb.org/browse/SERVER-4314
+Patch6:         mongodb-boost-filesystem3.patch
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires:  python-devel
@@ -113,9 +111,8 @@ software, default configuration files, and init scripts.
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
-%if 0%{?el5} == 0
 %patch5 -p1
-%endif
+%patch6 -p1
 
 # spurious permissions
 chmod -x README
@@ -131,16 +128,12 @@ sed -i 's/\r//' README
 # Disable error on warning, use boost-fs 2
 mv SConstruct SConstruct.orig
 grep -v 'Werror' SConstruct.orig > SConstruct
-sed -i 's/-Wall/-DBOOST_FILESYSTEM_VERSION=2/' SConstruct
 
 scons %{?_smp_mflags} --sharedclient --use-system-all .
 
 %install
 rm -rf %{buildroot}
 scons install . \
-%if "%{dist}" == "el5"
-	--extralib termcap \
-%endif
 	--sharedclient \
 	--use-system-all \
 	--prefix=%{buildroot}%{_prefix} \
@@ -269,6 +262,10 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Mon Aug 13 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.6-3
+- Remove EL5 support
+- Add patch to use boost-filesystem version 3
+
 * Wed Aug 01 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.6-2
 - Don't apply fix-xtime patch on EL5
 
