@@ -1,8 +1,8 @@
 %global         daemon mongod
 
 Name:           mongodb
-Version:        2.0.6
-Release:        3%{?dist}
+Version:        2.0.7
+Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -26,8 +26,11 @@ Patch3:         mongodb-fix-pcre.patch
 Patch4:         mongodb-src-r2.0.2-js.patch
 # https://jira.mongodb.org/browse/SERVER-6686
 Patch5:         mongodb-fix-xtime.patch
+%if 0%{?el6} == 0
 # https://jira.mongodb.org/browse/SERVER-4314
 Patch6:         mongodb-boost-filesystem3.patch
+%endif
+
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires:  python-devel
@@ -112,7 +115,9 @@ software, default configuration files, and init scripts.
 %patch3 -p1
 %patch4 -p1
 %patch5 -p1
+%if 0%{?el6} == 0
 %patch6 -p1
+%endif
 
 # spurious permissions
 chmod -x README
@@ -262,6 +267,10 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Tue Aug 21 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.7-1
+- Update to 2.0.7
+- Don't patch for boost-filesystem version 3 on EL6
+
 * Mon Aug 13 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.6-3
 - Remove EL5 support
 - Add patch to use boost-filesystem version 3
