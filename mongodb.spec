@@ -2,7 +2,7 @@
 
 Name:           mongodb
 Version:        2.0.7
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -267,6 +267,9 @@ fi
 %{_includedir}/mongo
 
 %changelog
+* Wed Sep 26 2012 Troy Dawson <tdawson@redhat.com> - 2.0.7-2
+- Update init script to use a pidfile
+
 * Tue Aug 21 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.7-1
 - Update to 2.0.7
 - Don't patch for boost-filesystem version 3 on EL6

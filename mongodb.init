@@ -11,6 +11,7 @@
 
 exec="/usr/bin/mongod"
 prog="mongod"
+pidfile=${PIDFILE-/var/run/mongodb/mongodb.pid}
 logfile="/var/log/mongodb/mongodb.log"
 options=" -f /etc/mongodb.conf"
 
@@ -21,7 +22,7 @@ lockfile="/var/lock/subsys/mongod"
 start() {
     [ -x $exec ] || exit 5
     echo -n $"Starting $prog: "
-    daemon --user mongodb "$exec --quiet $options run >> $logfile 2>&1 &"
+    daemon --pidfile=${pidfile} --user mongodb "$exec --quiet $options run >> $logfile 2>&1 &"
     retval=$?
     echo
     [ $retval -eq 0 ] && touch $lockfile
@@ -30,7 +31,7 @@ start() {
 
 stop() {
     echo -n $"Stopping $prog: "
-    killproc $prog
+    killproc -p ${pidfile} $prog
     retval=$?
     echo
     [ $retval -eq 0 ] && rm -f $lockfile
@@ -52,7 +53,7 @@ force_reload() {
 
 rh_status() {
     # run checks to determine if the service is running or use generic status
-    status $prog
+    status -p ${pidfile} $prog
 }
 
 rh_status_q() {
