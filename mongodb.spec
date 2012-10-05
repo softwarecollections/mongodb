@@ -1,8 +1,8 @@
 %global         daemon mongod
 
 Name:           mongodb
-Version:        2.0.7
-Release:        2%{?dist}
+Version:        2.2.0
+Release:        6%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -18,18 +18,27 @@ Source3:        %{name}.conf
 Source4:        %{daemon}.sysconf
 Source5:        %{name}-tmpfile
 Source6:        %{daemon}.service
-Patch1:         mongodb-no-term.patch
-Patch2:         mongodb-fix-fork.patch
-# https://github.com/mongodb/mongo/pull/161
-Patch3:         mongodb-fix-pcre.patch
-# https://github.com/mongodb/mongo/pull/160
-Patch4:         mongodb-src-r2.0.2-js.patch
-# https://jira.mongodb.org/browse/SERVER-6686
-Patch5:         mongodb-fix-xtime.patch
+Patch1:         mongodb-2.2.0-no-term.patch
+##Patch 2 - fixed different than our patch
+#Patch2:         mongodb-fix-fork.patch
+##Patch 3 - patch in 2.0 release, files not in 2.2
+##Patch 3 - https://github.com/mongodb/mongo/pull/161
+#Patch3:         mongodb-fix-pcre.patch
+##Patch 4 - not really needed because of v8
+##Patch 4 - https://github.com/mongodb/mongo/pull/160
+Patch4:         mongodb-2.2.0-js.patch
+##Patch 5 - https://jira.mongodb.org/browse/SERVER-6686
+Patch5:         mongodb-2.2.0-fix-xtime.patch
 %if 0%{?el6} == 0
-# https://jira.mongodb.org/browse/SERVER-4314
-Patch6:         mongodb-boost-filesystem3.patch
+##Patch 6 - https://jira.mongodb.org/browse/SERVER-4314
+Patch6:         mongodb-2.2.0-boost-filesystem3.patch
 %endif
+##Patch 7 - make it possible to use system libraries
+Patch7:         mongodb-2.2.0-use-system-version.patch
+##Patch 8 - make it possible to build shared libraries
+Patch8:         mongodb-2.2.0-shared-library.patch
+##Patch 9 - https://jira.mongodb.org/browse/SERVER-5575
+Patch9:         mongodb-2.2.0-full-flag.patch
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
@@ -37,10 +46,13 @@ BuildRequires:  python-devel
 BuildRequires:  scons
 BuildRequires:  boost-devel
 BuildRequires:  pcre-devel
-BuildRequires:  js-devel
+# Replace js-devel with v8-devel
+#BuildRequires:  js-devel
+BuildRequires:  v8-devel
 BuildRequires:  readline-devel
 BuildRequires:  libpcap-devel
 BuildRequires:  snappy-devel
+BuildRequires:  gperftools-devel
 
 %if 0%{?fedora} >= 15
 Requires(post): systemd-units
@@ -111,40 +123,44 @@ software, default configuration files, and init scripts.
 %prep
 %setup -q -n mongodb-src-r%{version}
 %patch1 -p1
-%patch2 -p1
-%patch3 -p1
+#%patch2 -p1
+#%patch3 -p1
 %patch4 -p1
 %patch5 -p1
 %if 0%{?el6} == 0
 %patch6 -p1
 %endif
+%patch7 -p1
+%patch8 -p1
+%ifarch %ix86
+%patch9 -p1
+%endif
 
 # spurious permissions
 chmod -x README
-chmod -x db/repl/rs_exception.h
-chmod -x db/resource.h
 
 # wrong end-of-file encoding
-sed -i 's/\r//' db/repl/rs_exception.h
-sed -i 's/\r//' db/resource.h
 sed -i 's/\r//' README
 
 %build
-# Disable error on warning, use boost-fs 2
-mv SConstruct SConstruct.orig
-grep -v 'Werror' SConstruct.orig > SConstruct
-
-scons %{?_smp_mflags} --sharedclient --use-system-all .
+scons %{?_smp_mflags} --sharedclient \
+      --use-system-all \
+      --prefix=%{buildroot}%{_prefix} \
+      --extrapath=%{_prefix} \
+      --usev8
 
 %install
 rm -rf %{buildroot}
-scons install . \
+scons install \
 	--sharedclient \
 	--use-system-all \
 	--prefix=%{buildroot}%{_prefix} \
+	--extrapath=%{_prefix} \
+	--usev8 \
 	--nostrip \
 	--full
 rm -f %{buildroot}%{_libdir}/libmongoclient.a
+rm -f %{buildroot}/usr/lib/libmongoclient.a
 
 mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
 mkdir -p %{buildroot}%{_localstatedir}/log/%{name}
@@ -216,15 +232,17 @@ fi
 
 %files
 %defattr(-,root,root,-)
+%{_bindir}/bsondump
 %{_bindir}/mongo
 %{_bindir}/mongodump
 %{_bindir}/mongoexport
 %{_bindir}/mongofiles
 %{_bindir}/mongoimport
+%{_bindir}/mongooplog
+%{_bindir}/mongoperf
 %{_bindir}/mongorestore
 %{_bindir}/mongostat
 %{_bindir}/mongosniff
-%{_bindir}/bsondump
 %{_bindir}/mongotop
 
 %{_mandir}/man1/mongo.1*
@@ -264,11 +282,30 @@ fi
 
 %files devel
 %defattr(-,root,root,-)
-%{_includedir}/mongo
+%{_includedir}
 
 %changelog
-* Wed Sep 26 2012 Troy Dawson <tdawson@redhat.com> - 2.0.7-2
+* Tue Oct 02 2012 Troy Dawson <tdawson@redhat.com> - 2.2.0-6
+- full flag patch to get 32 bit builds to work 
+
+* Tue Oct 02 2012 Troy Dawson <tdawson@redhat.com> - 2.2.0-5
+- shared libraries patch
+- Fix up minor %files issues
+
+* Fri Sep 28 2012 Troy Dawson <tdawson@redhat.com> - 2.2.0-4
+- Fix spec files problems
+
+* Fri Sep 28 2012 Troy Dawson <tdawson@redhat.com> - 2.2.0-3
+- Updated patch to use system libraries
 - Update init script to use a pidfile
+
+* Thu Sep 27 2012 Troy Dawson <tdawson@redhat.com> - 2.2.0-2
+- Added patch to use system libraries
+
+* Wed Sep 19 2012 Troy Dawson <tdawson@redhat.com> - 2.2.0-1
+- Updated to 2.2.0
+- Updated patches that were still needed
+- use v8 instead of spider_monkey due to bundled library issues
 
 * Tue Aug 21 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.7-1
 - Update to 2.0.7
