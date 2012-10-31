@@ -2,7 +2,7 @@
 
 Name:           mongodb
 Version:        2.2.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -130,15 +130,24 @@ chmod -x README
 sed -i 's/\r//' README
 
 %build
-scons %{?_smp_mflags} --sharedclient \
-      --use-system-all \
-      --prefix=%{buildroot}%{_prefix} \
-      --extrapath=%{_prefix} \
-      --usev8
+# NOTE: Build flags must be EXACTLY the same in the install step!
+# If you fail to do this, mongodb will be built twice...
+scons \
+	%{?_smp_mflags} \
+	--sharedclient \
+	--use-system-all \
+	--prefix=%{buildroot}%{_prefix} \
+	--extrapath=%{_prefix} \
+	--usev8 \
+	--nostrip \
+	--full
 
 %install
 rm -rf %{buildroot}
+# NOTE: Install flags must be EXACTLY the same in the build step!
+# If you fail to do this, mongodb will be built twice...
 scons install \
+	%{?_smp_mflags} \
 	--sharedclient \
 	--use-system-all \
 	--prefix=%{buildroot}%{_prefix} \
@@ -272,6 +281,10 @@ fi
 %{_includedir}
 
 %changelog
+* Wed Oct 31 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.2.1-2
+- Make sure build and install flags are the same
+- Actually remove the js patch file
+
 * Wed Oct 31 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.2.1-1
 - Remove fork fix patch (fixed upstream)
 - Remove pcre patch (fixed upstream)
