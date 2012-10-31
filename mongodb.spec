@@ -1,8 +1,8 @@
 %global         daemon mongod
 
 Name:           mongodb
-Version:        2.2.0
-Release:        6%{?dist}
+Version:        2.2.1
+Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -19,14 +19,6 @@ Source4:        %{daemon}.sysconf
 Source5:        %{name}-tmpfile
 Source6:        %{daemon}.service
 Patch1:         mongodb-2.2.0-no-term.patch
-##Patch 2 - fixed different than our patch
-#Patch2:         mongodb-fix-fork.patch
-##Patch 3 - patch in 2.0 release, files not in 2.2
-##Patch 3 - https://github.com/mongodb/mongo/pull/161
-#Patch3:         mongodb-fix-pcre.patch
-##Patch 4 - not really needed because of v8
-##Patch 4 - https://github.com/mongodb/mongo/pull/160
-Patch4:         mongodb-2.2.0-js.patch
 ##Patch 5 - https://jira.mongodb.org/browse/SERVER-6686
 Patch5:         mongodb-2.2.0-fix-xtime.patch
 %if 0%{?el6} == 0
@@ -46,8 +38,6 @@ BuildRequires:  python-devel
 BuildRequires:  scons
 BuildRequires:  boost-devel
 BuildRequires:  pcre-devel
-# Replace js-devel with v8-devel
-#BuildRequires:  js-devel
 BuildRequires:  v8-devel
 BuildRequires:  readline-devel
 BuildRequires:  libpcap-devel
@@ -123,9 +113,6 @@ software, default configuration files, and init scripts.
 %prep
 %setup -q -n mongodb-src-r%{version}
 %patch1 -p1
-#%patch2 -p1
-#%patch3 -p1
-%patch4 -p1
 %patch5 -p1
 %if 0%{?el6} == 0
 %patch6 -p1
@@ -285,6 +272,12 @@ fi
 %{_includedir}
 
 %changelog
+* Wed Oct 31 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.2.1-1
+- Remove fork fix patch (fixed upstream)
+- Remove pcre patch (fixed upstream)
+- Remove mozjs patch (now using v8 upstream)
+- Update to 2.2.1
+
 * Tue Oct 02 2012 Troy Dawson <tdawson@redhat.com> - 2.2.0-6
 - full flag patch to get 32 bit builds to work 
 
