@@ -245,7 +245,6 @@ fi
 %{_bindir}/mongotop
 
 %{_mandir}/man1/mongo.1*
-%{_mandir}/man1/mongod.1*
 %{_mandir}/man1/mongodump.1*
 %{_mandir}/man1/mongoexport.1*
 %{_mandir}/man1/mongofiles.1*
@@ -279,6 +278,8 @@ fi
 %{_initddir}/%{daemon}
 %endif
 
+%{_mandir}/man1/mongod.1*
+
 %files devel
 %defattr(-,root,root,-)
 %{_includedir}
@@ -287,6 +288,7 @@ fi
 * Tue Nov 27 2012 Troy Dawson <tdawson@redhat.com> - 2.2.1-3
 - Add ssl build option
 - Using the reserved mongod UID for the useradd
+- mongod man page in server package (#880351)
 
 * Wed Oct 31 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.2.1-2
 - Make sure build and install flags are the same
