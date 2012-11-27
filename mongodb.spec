@@ -192,7 +192,7 @@ rm -rf %{buildroot}
 %pre server
 getent group %{name} >/dev/null || groupadd -r %{name}
 getent passwd %{name} >/dev/null || \
-useradd -r -g %{name} -d %{_sharedstatedir}/%{name} -s /sbin/nologin \
+useradd -r -g %{name} -u 184 -d %{_sharedstatedir}/%{name} -s /sbin/nologin \
 -c "MongoDB Database Server" %{name}
 exit 0
 
@@ -286,6 +286,7 @@ fi
 %changelog
 * Tue Nov 27 2012 Troy Dawson <tdawson@redhat.com> - 2.2.1-3
 - Add ssl build option
+- Using the reserved mongod UID for the useradd
 
 * Wed Oct 31 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.2.1-2
 - Make sure build and install flags are the same
