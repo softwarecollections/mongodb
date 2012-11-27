@@ -289,6 +289,7 @@ fi
 - Add ssl build option
 - Using the reserved mongod UID for the useradd
 - mongod man page in server package (#880351)
+- added optional MONGODB_OPTIONS to init script
 
 * Wed Oct 31 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.2.1-2
 - Make sure build and install flags are the same
