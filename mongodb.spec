@@ -2,7 +2,7 @@
 
 Name:           mongodb
 Version:        2.2.1
-Release:        2%{?dist}
+Release:        3?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -36,6 +36,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires:  python-devel
 BuildRequires:  scons
+BuildRequires:  openssl-devel
 BuildRequires:  boost-devel
 BuildRequires:  pcre-devel
 BuildRequires:  v8-devel
@@ -140,6 +141,7 @@ scons \
 	--extrapath=%{_prefix} \
 	--usev8 \
 	--nostrip \
+	--ssl \
 	--full
 
 %install
@@ -154,6 +156,7 @@ scons install \
 	--extrapath=%{_prefix} \
 	--usev8 \
 	--nostrip \
+	--ssl \
 	--full
 rm -f %{buildroot}%{_libdir}/libmongoclient.a
 rm -f %{buildroot}/usr/lib/libmongoclient.a
@@ -281,6 +284,9 @@ fi
 %{_includedir}
 
 %changelog
+* Tue Nov 27 2012 Troy Dawson <tdawson@redhat.com> - 2.2.1-3
+- Add ssl build option
+
 * Wed Oct 31 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.2.1-2
 - Make sure build and install flags are the same
 - Actually remove the js patch file
