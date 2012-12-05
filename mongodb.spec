@@ -1,8 +1,8 @@
 %global         daemon mongod
 
 Name:           mongodb
-Version:        2.2.1
-Release:        3%{?dist}
+Version:        2.2.2
+Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -285,6 +285,9 @@ fi
 %{_includedir}
 
 %changelog
+* Wed Dec 05 2012 Troy Dawson <tdawson@redhat.com> - 2.2.2-1
+- Updated to version 2.2.2
+
 * Tue Nov 27 2012 Troy Dawson <tdawson@redhat.com> - 2.2.1-3
 - Add ssl build option
 - Using the reserved mongod UID for the useradd
