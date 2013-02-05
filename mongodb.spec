@@ -1,8 +1,8 @@
 %global         daemon mongod
 
 Name:           mongodb
-Version:        2.2.2
-Release:        2%{?dist}
+Version:        2.2.3
+Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -296,6 +296,9 @@ fi
 %{_includedir}
 
 %changelog
+* Tue Feb 05 2013 Troy Dawson <tdawson@redhat.com> - 2.2.3-1
+- Update to version 2.2.3
+
 * Mon Jan 07 2013 Troy Dawson <tdawson@redhat.com> - 2.2.2-2
 - remove duplicate headers (#886064)
 
