@@ -2,7 +2,7 @@
 
 Name:           mongodb
 Version:        2.2.3
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -296,6 +296,9 @@ fi
 %{_includedir}
 
 %changelog
+* Sun Feb 10 2013 Denis Arnaud <denis.arnaud_fedora@m4x.org> - 2.2.3-3
+- Rebuild for Boost-1.53.0
+
 * Sat Feb 09 2013 Denis Arnaud <denis.arnaud_fedora@m4x.org> - 2.2.3-2
 - Rebuild for Boost-1.53.0
 
