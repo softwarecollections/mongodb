@@ -2,7 +2,7 @@
 
 Name:           mongodb
 Version:        2.2.3
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -31,6 +31,9 @@ Patch7:         mongodb-2.2.0-use-system-version.patch
 Patch8:         mongodb-2.2.0-shared-library.patch
 ##Patch 9 - https://jira.mongodb.org/browse/SERVER-5575
 Patch9:         mongodb-2.2.0-full-flag.patch
+##Patch 10 - https://bugzilla.redhat.com/show_bug.cgi?id=927536
+##Patch 10 - https://jira.mongodb.org/browse/SERVER-9124
+Patch10:        mongodb-2.2.3-CVE-2013-1892-avoid-raw-pointers.patch
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
@@ -123,6 +126,7 @@ software, default configuration files, and init scripts.
 %ifarch %ix86
 %patch9 -p1
 %endif
+%patch10 -p1
 
 # spurious permissions
 chmod -x README
@@ -296,6 +300,9 @@ fi
 %{_includedir}
 
 %changelog
+* Wed Mar 27 2013 Troy Dawson <tdawson@redhat.com> - 2.2.3-4
+- Fix for CVE-2013-1892
+
 * Sun Feb 10 2013 Denis Arnaud <denis.arnaud_fedora@m4x.org> - 2.2.3-3
 - Rebuild for Boost-1.53.0
 
