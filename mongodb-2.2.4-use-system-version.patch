@@ -1,7 +1,7 @@
-diff -ur mongodb-src-r2.2.0.orig/SConstruct mongodb-src-r2.2.0/SConstruct
---- mongodb-src-r2.2.0.orig/SConstruct	2012-09-28 16:48:16.755503308 -0500
-+++ mongodb-src-r2.2.0/SConstruct	2012-09-28 16:51:19.261374860 -0500
-@@ -249,7 +249,7 @@
+diff -urp mongodb-src-r2.2.4.orig/SConstruct mongodb-src-r2.2.4/SConstruct
+--- mongodb-src-r2.2.4.orig/SConstruct	2013-05-02 14:59:37.226000000 -0500
++++ mongodb-src-r2.2.4/SConstruct	2013-05-02 15:04:25.164000000 -0500
+@@ -249,7 +249,7 @@ def printLocalInfo():
  
  printLocalInfo()
  
@@ -10,7 +10,7 @@ diff -ur mongodb-src-r2.2.0.orig/SConstruct mongodb-src-r2.2.0/SConstruct
  
  onlyServer = len( COMMAND_LINE_TARGETS ) == 0 or ( len( COMMAND_LINE_TARGETS ) == 1 and str( COMMAND_LINE_TARGETS[0] ) in [ "mongod" , "mongos" , "test" ] )
  nix = False
-@@ -790,6 +790,28 @@
+@@ -791,6 +791,28 @@ def doConfigure(myenv):
              print( "c++ compiler not installed!" )
              Exit(1)
  
@@ -39,3 +39,4 @@ diff -ur mongodb-src-r2.2.0.orig/SConstruct mongodb-src-r2.2.0/SConstruct
      if use_system_version_of_library("boost"):
          if not conf.CheckCXXHeader( "boost/filesystem/operations.hpp" ):
              print( "can't find boost headers" )
+Only in mongodb-src-r2.2.4: SConstruct.orig

@@ -1,0 +1,12 @@
+diff -urp mongodb-src-r2.2.4.orig/SConstruct mongodb-src-r2.2.4/SConstruct
+--- mongodb-src-r2.2.4.orig/SConstruct	2013-03-31 21:41:49.000000000 -0500
++++ mongodb-src-r2.2.4/SConstruct	2013-05-02 14:32:15.343000000 -0500
+@@ -696,7 +696,7 @@ if nix:
+     env.Append( LIBS=[] )
+ 
+     #make scons colorgcc friendly
+-    for key in ('HOME', 'TERM'):
++    for key in ('HOME'):
+         try:
+             env['ENV'][key] = os.environ[key]
+         except KeyError:

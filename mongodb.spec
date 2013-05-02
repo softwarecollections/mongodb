@@ -1,8 +1,8 @@
-%global         daemon mongod
+%global daemon mongod
 
 Name:           mongodb
-Version:        2.2.3
-Release:        4%{?dist}
+Version:        2.2.4
+Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -18,22 +18,21 @@ Source3:        %{name}.conf
 Source4:        %{daemon}.sysconf
 Source5:        %{name}-tmpfile
 Source6:        %{daemon}.service
-Patch1:         mongodb-2.2.0-no-term.patch
+Patch1:         mongodb-2.2.4-no-term.patch
 ##Patch 5 - https://jira.mongodb.org/browse/SERVER-6686
-Patch5:         mongodb-2.2.0-fix-xtime.patch
+Patch5:         mongodb-2.2.4-fix-xtime.patch
 %if 0%{?el6} == 0
 ##Patch 6 - https://jira.mongodb.org/browse/SERVER-4314
-Patch6:         mongodb-2.2.0-boost-filesystem3.patch
+Patch6:         mongodb-2.2.4-boost-filesystem3.patch
 %endif
 ##Patch 7 - make it possible to use system libraries
-Patch7:         mongodb-2.2.0-use-system-version.patch
+Patch7:         mongodb-2.2.4-use-system-version.patch
 ##Patch 8 - make it possible to build shared libraries
-Patch8:         mongodb-2.2.0-shared-library.patch
+Patch8:         mongodb-2.2.4-shared-library.patch
 ##Patch 9 - https://jira.mongodb.org/browse/SERVER-5575
-Patch9:         mongodb-2.2.0-full-flag.patch
-##Patch 10 - https://bugzilla.redhat.com/show_bug.cgi?id=927536
-##Patch 10 - https://jira.mongodb.org/browse/SERVER-9124
-Patch10:        mongodb-2.2.3-CVE-2013-1892-avoid-raw-pointers.patch
+Patch9:         mongodb-2.2.4-full-flag.patch
+##Patch 11 - Support atomics, needed for ARM
+Patch11:        mongodb-2.2.4-arm-atomics.patch
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
@@ -123,10 +122,10 @@ software, default configuration files, and init scripts.
 %endif
 %patch7 -p1
 %patch8 -p1
-%ifarch %ix86
+%ifarch %ix86 %{arm}
 %patch9 -p1
 %endif
-%patch10 -p1
+%patch11 -p1 -b .atomics
 
 # spurious permissions
 chmod -x README
@@ -300,6 +299,13 @@ fi
 %{_includedir}
 
 %changelog
+* Thu May 02 2013 Troy Dawson <tdawson@redhat.com> - 2.2.4-1
+- Bumped version up to 2.2.4
+- Refreshed all patches to 2.2.4
+
+* Fri Apr 26 2013 David Marlin <dmarlin@redhat.com> - 2.2.3-5
+- Patch to build on ARM (#921226)
+
 * Wed Mar 27 2013 Troy Dawson <tdawson@redhat.com> - 2.2.3-4
 - Fix for CVE-2013-1892
 
@@ -409,7 +415,7 @@ fi
 * Mon Jan 16 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-2
 - Add pkg-config enablement patch
 
-* Thu Jan 14 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-1
+* Sat Jan 14 2012 Nathaniel McCallum <nathaniel@natemccallum.com> - 2.0.2-1
 - Update to 2.0.2
 - Add new files (mongotop and bsondump manpage)
 - Update mongodb-src-r1.8.2-js.patch => mongodb-src-r2.0.2-js.patch

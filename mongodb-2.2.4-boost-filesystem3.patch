@@ -1,7 +1,7 @@
-diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/db.cpp mongodb-src-r2.2.0/src/mongo/db/db.cpp
---- mongodb-src-r2.2.0.orig/src/mongo/db/db.cpp	2012-08-28 00:28:11.000000000 -0500
-+++ mongodb-src-r2.2.0/src/mongo/db/db.cpp	2012-09-19 17:21:49.838736143 -0500
-@@ -348,7 +348,7 @@
+diff -urp mongodb-src-r2.2.4.orig/src/mongo/db/db.cpp mongodb-src-r2.2.4/src/mongo/db/db.cpp
+--- mongodb-src-r2.2.4.orig/src/mongo/db/db.cpp	2013-03-31 21:41:49.000000000 -0500
++++ mongodb-src-r2.2.4/src/mongo/db/db.cpp	2013-05-02 14:51:31.833000000 -0500
+@@ -349,7 +349,7 @@ namespace mongo {
          boost::filesystem::path path( dbpath );
          for ( boost::filesystem::directory_iterator i( path );
                  i != boost::filesystem::directory_iterator(); ++i ) {
@@ -10,7 +10,7 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/db.cpp mongodb-src-r2.2.0/src/mong
              if ( boost::filesystem::is_directory( *i ) &&
                      fileName.length() && fileName[ 0 ] == '$' )
                  boost::filesystem::remove_all( *i );
-@@ -748,11 +748,6 @@
+@@ -749,11 +749,6 @@ static int mongoDbMain(int argc, char* a
      dbExecCommand = argv[0];
  
      srand(curTimeMicros());
@@ -22,7 +22,7 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/db.cpp mongodb-src-r2.2.0/src/mong
  
      {
          unsigned x = 0x12345678;
-@@ -1083,7 +1078,7 @@
+@@ -1084,7 +1079,7 @@ static int mongoDbMain(int argc, char* a
          if (params.count("shutdown")){
              bool failed = false;
  
@@ -31,10 +31,10 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/db.cpp mongodb-src-r2.2.0/src/mong
              if ( !boost::filesystem::exists( name ) || boost::filesystem::file_size( name ) == 0 )
                  failed = true;
  
-diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/dur.cpp mongodb-src-r2.2.0/src/mongo/db/dur.cpp
---- mongodb-src-r2.2.0.orig/src/mongo/db/dur.cpp	2012-08-28 00:28:11.000000000 -0500
-+++ mongodb-src-r2.2.0/src/mongo/db/dur.cpp	2012-09-19 17:21:49.839736144 -0500
-@@ -770,7 +770,7 @@
+diff -urp mongodb-src-r2.2.4.orig/src/mongo/db/dur.cpp mongodb-src-r2.2.4/src/mongo/db/dur.cpp
+--- mongodb-src-r2.2.4.orig/src/mongo/db/dur.cpp	2013-03-31 21:41:49.000000000 -0500
++++ mongodb-src-r2.2.4/src/mongo/db/dur.cpp	2013-05-02 14:51:31.835000000 -0500
+@@ -779,7 +779,7 @@ namespace mongo {
  
              bool samePartition = true;
              try {
@@ -43,10 +43,10 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/dur.cpp mongodb-src-r2.2.0/src/mon
                  samePartition = onSamePartition(getJournalDir().string(), dbpathDir);
              }
              catch(...) {
-diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/dur_journal.cpp mongodb-src-r2.2.0/src/mongo/db/dur_journal.cpp
---- mongodb-src-r2.2.0.orig/src/mongo/db/dur_journal.cpp	2012-08-28 00:28:11.000000000 -0500
-+++ mongodb-src-r2.2.0/src/mongo/db/dur_journal.cpp	2012-09-19 17:21:49.840736145 -0500
-@@ -176,7 +176,7 @@
+diff -urp mongodb-src-r2.2.4.orig/src/mongo/db/dur_journal.cpp mongodb-src-r2.2.4/src/mongo/db/dur_journal.cpp
+--- mongodb-src-r2.2.4.orig/src/mongo/db/dur_journal.cpp	2013-03-31 21:41:49.000000000 -0500
++++ mongodb-src-r2.2.4/src/mongo/db/dur_journal.cpp	2013-05-02 14:51:31.836000000 -0500
+@@ -176,7 +176,7 @@ namespace mongo {
                  for ( boost::filesystem::directory_iterator i( getJournalDir() );
                          i != boost::filesystem::directory_iterator();
                          ++i ) {
@@ -55,7 +55,7 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/dur_journal.cpp mongodb-src-r2.2.0
                      if( anyFiles || str::startsWith(fileName, "j._") )
                          return true;
                  }
-@@ -194,7 +194,7 @@
+@@ -194,7 +194,7 @@ namespace mongo {
                  for ( boost::filesystem::directory_iterator i( getJournalDir() );
                          i != boost::filesystem::directory_iterator();
                          ++i ) {
@@ -64,10 +64,10 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/dur_journal.cpp mongodb-src-r2.2.0
                      if( str::startsWith(fileName, "j._") ) {
                          try {
                              removeOldJournalFile(*i);
-diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/dur_recover.cpp mongodb-src-r2.2.0/src/mongo/db/dur_recover.cpp
---- mongodb-src-r2.2.0.orig/src/mongo/db/dur_recover.cpp	2012-08-28 00:28:11.000000000 -0500
-+++ mongodb-src-r2.2.0/src/mongo/db/dur_recover.cpp	2012-09-19 17:23:21.570742599 -0500
-@@ -72,7 +72,7 @@
+diff -urp mongodb-src-r2.2.4.orig/src/mongo/db/dur_recover.cpp mongodb-src-r2.2.4/src/mongo/db/dur_recover.cpp
+--- mongodb-src-r2.2.4.orig/src/mongo/db/dur_recover.cpp	2013-03-31 21:41:49.000000000 -0500
++++ mongodb-src-r2.2.4/src/mongo/db/dur_recover.cpp	2013-05-02 14:51:31.838000000 -0500
+@@ -72,7 +72,7 @@ namespace mongo {
                      i != boost::filesystem::directory_iterator();
                      ++i ) {
                  boost::filesystem::path filepath = *i;
@@ -76,7 +76,7 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/dur_recover.cpp mongodb-src-r2.2.0
                  if( str::startsWith(fileName, "j._") ) {
                      unsigned u = str::toUnsigned( str::after(fileName, '_') );
                      if( m.count(u) ) {
-@@ -85,7 +85,7 @@
+@@ -85,7 +85,7 @@ namespace mongo {
                  if( i != m.begin() && m.count(i->first - 1) == 0 ) {
                      uasserted(13532,
                      str::stream() << "unexpected file in journal directory " << dir.string()
@@ -85,10 +85,10 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/dur_recover.cpp mongodb-src-r2.2.0
                  }
                  files.push_back(i->second);
              }
-diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/instance.cpp mongodb-src-r2.2.0/src/mongo/db/instance.cpp
---- mongodb-src-r2.2.0.orig/src/mongo/db/instance.cpp	2012-08-28 00:28:11.000000000 -0500
-+++ mongodb-src-r2.2.0/src/mongo/db/instance.cpp	2012-09-19 17:21:49.843736148 -0500
-@@ -833,13 +833,13 @@
+diff -urp mongodb-src-r2.2.4.orig/src/mongo/db/instance.cpp mongodb-src-r2.2.4/src/mongo/db/instance.cpp
+--- mongodb-src-r2.2.4.orig/src/mongo/db/instance.cpp	2013-03-31 21:41:49.000000000 -0500
++++ mongodb-src-r2.2.4/src/mongo/db/instance.cpp	2013-05-02 14:51:31.841000000 -0500
+@@ -826,13 +826,13 @@ namespace mongo {
                  i != boost::filesystem::directory_iterator(); ++i ) {
              if ( directoryperdb ) {
                  boost::filesystem::path p = *i;
@@ -104,7 +104,7 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/instance.cpp mongodb-src-r2.2.0/sr
                  if ( fileName.length() > 3 && fileName.substr( fileName.length() - 3, 3 ) == ".ns" )
                      names.push_back( fileName.substr( 0, fileName.length() - 3 ) );
              }
-@@ -1102,7 +1102,7 @@
+@@ -1095,7 +1095,7 @@ namespace mongo {
      }
  
      void acquirePathLock(bool doingRepair) {
@@ -113,10 +113,10 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/instance.cpp mongodb-src-r2.2.0/sr
  
          bool oldFile = false;
  
-diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/pdfile.cpp mongodb-src-r2.2.0/src/mongo/db/pdfile.cpp
---- mongodb-src-r2.2.0.orig/src/mongo/db/pdfile.cpp	2012-08-28 00:28:11.000000000 -0500
-+++ mongodb-src-r2.2.0/src/mongo/db/pdfile.cpp	2012-09-19 17:21:49.845736150 -0500
-@@ -1675,7 +1675,7 @@
+diff -urp mongodb-src-r2.2.4.orig/src/mongo/db/pdfile.cpp mongodb-src-r2.2.4/src/mongo/db/pdfile.cpp
+--- mongodb-src-r2.2.4.orig/src/mongo/db/pdfile.cpp	2013-03-31 21:41:49.000000000 -0500
++++ mongodb-src-r2.2.4/src/mongo/db/pdfile.cpp	2013-05-02 14:51:31.846000000 -0500
+@@ -1736,7 +1736,7 @@ namespace mongo {
              virtual bool apply( const Path &p ) {
                  if ( !boost::filesystem::exists( p ) )
                      return false;
@@ -125,7 +125,7 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/pdfile.cpp mongodb-src-r2.2.0/src/
                  return true;
              }
              virtual const char * op() const {
-@@ -1698,7 +1698,7 @@
+@@ -1759,7 +1759,7 @@ namespace mongo {
              virtual bool apply( const Path &p ) {
                  if ( !boost::filesystem::exists( p ) )
                      return false;
@@ -134,7 +134,7 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/pdfile.cpp mongodb-src-r2.2.0/src/
                  return true;
              }
              virtual const char * op() const {
-@@ -1783,7 +1783,7 @@
+@@ -1844,7 +1844,7 @@ namespace mongo {
              uniqueReservedPath( ( preserveClonedFilesOnFailure || backupOriginalFiles ) ?
                                  "backup" : "_tmp" );
          MONGO_ASSERT_ON_EXCEPTION( boost::filesystem::create_directory( reservedPath ) );
@@ -143,10 +143,10 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/db/pdfile.cpp mongodb-src-r2.2.0/src/
  
          bool res;
          {
-diff -ru mongodb-src-r2.2.0.orig/src/mongo/dbtests/framework.cpp mongodb-src-r2.2.0/src/mongo/dbtests/framework.cpp
---- mongodb-src-r2.2.0.orig/src/mongo/dbtests/framework.cpp	2012-08-28 00:28:11.000000000 -0500
-+++ mongodb-src-r2.2.0/src/mongo/dbtests/framework.cpp	2012-09-19 17:21:49.846736151 -0500
-@@ -199,7 +199,7 @@
+diff -urp mongodb-src-r2.2.4.orig/src/mongo/dbtests/framework.cpp mongodb-src-r2.2.4/src/mongo/dbtests/framework.cpp
+--- mongodb-src-r2.2.4.orig/src/mongo/dbtests/framework.cpp	2013-03-31 21:41:49.000000000 -0500
++++ mongodb-src-r2.2.4/src/mongo/dbtests/framework.cpp	2013-05-02 14:51:31.847000000 -0500
+@@ -199,7 +199,7 @@ namespace mongo {
                  boost::filesystem::create_directory(p);
              }
  
@@ -155,9 +155,9 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/dbtests/framework.cpp mongodb-src-r2.
              dbpath = dbpathString.c_str();
  
              cmdLine.prealloc = false;
-diff -ru mongodb-src-r2.2.0.orig/src/mongo/pch.h mongodb-src-r2.2.0/src/mongo/pch.h
---- mongodb-src-r2.2.0.orig/src/mongo/pch.h	2012-08-28 00:28:11.000000000 -0500
-+++ mongodb-src-r2.2.0/src/mongo/pch.h	2012-09-19 17:21:49.847736152 -0500
+diff -urp mongodb-src-r2.2.4.orig/src/mongo/pch.h mongodb-src-r2.2.4/src/mongo/pch.h
+--- mongodb-src-r2.2.4.orig/src/mongo/pch.h	2013-03-31 21:41:49.000000000 -0500
++++ mongodb-src-r2.2.4/src/mongo/pch.h	2013-05-02 14:51:31.848000000 -0500
 @@ -44,7 +44,7 @@
  #include "string.h"
  #include "limits.h"
@@ -167,10 +167,10 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/pch.h mongodb-src-r2.2.0/src/mongo/pc
  #include <boost/shared_ptr.hpp>
  #include <boost/smart_ptr.hpp>
  #include <boost/function.hpp>
-diff -ru mongodb-src-r2.2.0.orig/src/mongo/shell/shell_utils_launcher.cpp mongodb-src-r2.2.0/src/mongo/shell/shell_utils_launcher.cpp
---- mongodb-src-r2.2.0.orig/src/mongo/shell/shell_utils_launcher.cpp	2012-08-28 00:28:11.000000000 -0500
-+++ mongodb-src-r2.2.0/src/mongo/shell/shell_utils_launcher.cpp	2012-09-19 17:21:49.848736153 -0500
-@@ -184,7 +184,7 @@
+diff -urp mongodb-src-r2.2.4.orig/src/mongo/shell/shell_utils_launcher.cpp mongodb-src-r2.2.4/src/mongo/shell/shell_utils_launcher.cpp
+--- mongodb-src-r2.2.4.orig/src/mongo/shell/shell_utils_launcher.cpp	2013-03-31 21:41:49.000000000 -0500
++++ mongodb-src-r2.2.4/src/mongo/shell/shell_utils_launcher.cpp	2013-05-02 14:51:31.849000000 -0500
+@@ -184,7 +184,7 @@ namespace mongo {
              }
  #endif
  
@@ -179,7 +179,7 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/shell/shell_utils_launcher.cpp mongod
  
              _port = -1;
  
-@@ -536,14 +536,14 @@
+@@ -536,14 +536,14 @@ namespace mongo {
              boost::filesystem::directory_iterator i( from );
              while( i != end ) {
                  boost::filesystem::path p = *i;
@@ -197,11 +197,11 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/shell/shell_utils_launcher.cpp mongod
                      }
                  }
                  ++i;
-diff -ru mongodb-src-r2.2.0.orig/src/mongo/tools/restore.cpp mongodb-src-r2.2.0/src/mongo/tools/restore.cpp
---- mongodb-src-r2.2.0.orig/src/mongo/tools/restore.cpp	2012-08-28 00:28:11.000000000 -0500
-+++ mongodb-src-r2.2.0/src/mongo/tools/restore.cpp	2012-09-19 17:21:49.850736155 -0500
-@@ -174,7 +174,7 @@
-         log(2) << "drillDown: " << root.string() << endl;
+diff -urp mongodb-src-r2.2.4.orig/src/mongo/tools/restore.cpp mongodb-src-r2.2.4/src/mongo/tools/restore.cpp
+--- mongodb-src-r2.2.4.orig/src/mongo/tools/restore.cpp	2013-03-31 21:41:49.000000000 -0500
++++ mongodb-src-r2.2.4/src/mongo/tools/restore.cpp	2013-05-02 14:53:33.259000000 -0500
+@@ -229,7 +229,7 @@ public:
+         LOG(2) << "drillDown: " << root.string() << endl;
  
          // skip hidden files and directories
 -        if (root.leaf()[0] == '.' && root.leaf() != ".")
@@ -209,7 +209,7 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/tools/restore.cpp mongodb-src-r2.2.0/
              return;
  
          if ( is_directory( root ) ) {
-@@ -204,10 +204,10 @@
+@@ -259,10 +259,10 @@ public:
                  }
  
                  // don't insert oplog
@@ -221,8 +221,8 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/tools/restore.cpp mongodb-src-r2.2.0/
 +                if ( p.leaf().string() == "system.indexes.bson" ) {
                      indexes = p;
                  } else {
-                     drillDown(p, use_db, use_coll);
-@@ -233,7 +233,7 @@
+                     drillDown(p, use_db, use_coll, oplogReplayLimit);
+@@ -289,7 +289,7 @@ public:
  
          log() << root.string() << endl;
  
@@ -231,7 +231,7 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/tools/restore.cpp mongodb-src-r2.2.0/
              log() << "\t skipping" << endl;
              return;
          }
-@@ -255,7 +255,7 @@
+@@ -311,7 +311,7 @@ public:
  
          verify( ns.size() );
  
@@ -240,7 +240,7 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/tools/restore.cpp mongodb-src-r2.2.0/
          oldCollName = oldCollName.substr( 0 , oldCollName.find_last_of( "." ) );
          if (use_coll) {
              ns += "." + _coll;
-@@ -267,7 +267,7 @@
+@@ -330,7 +330,7 @@ public:
          log() << "\tgoing into namespace [" << ns << "]" << endl;
  
          if ( _drop ) {
@@ -249,7 +249,7 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/tools/restore.cpp mongodb-src-r2.2.0/
                  log() << "\t dropping" << endl;
                  conn().dropCollection( ns );
              } else {
-@@ -287,7 +287,7 @@
+@@ -350,7 +350,7 @@ public:
              if (!boost::filesystem::exists(metadataFile.string())) {
                  // This is fine because dumps from before 2.1 won't have a metadata file, just print a warning.
                  // System collections shouldn't have metadata so don't warn if that file is missing.
@@ -258,7 +258,7 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/tools/restore.cpp mongodb-src-r2.2.0/
                      log() << metadataFile.string() << " not found. Skipping." << endl;
                  }
              } else {
-@@ -317,7 +317,7 @@
+@@ -380,7 +380,7 @@ public:
          }
  
          processFile( root );
@@ -267,10 +267,10 @@ diff -ru mongodb-src-r2.2.0.orig/src/mongo/tools/restore.cpp mongodb-src-r2.2.0/
              // Delete any users that used to exist but weren't in the dump file
              for (set<string>::iterator it = _users.begin(); it != _users.end(); ++it) {
                  BSONObj userMatch = BSON("user" << *it);
-diff -ru mongodb-src-r2.2.0.orig/src/mongo/tools/tool.cpp mongodb-src-r2.2.0/src/mongo/tools/tool.cpp
---- mongodb-src-r2.2.0.orig/src/mongo/tools/tool.cpp	2012-08-28 00:28:11.000000000 -0500
-+++ mongodb-src-r2.2.0/src/mongo/tools/tool.cpp	2012-09-19 17:21:49.851736156 -0500
-@@ -118,12 +118,6 @@
+diff -urp mongodb-src-r2.2.4.orig/src/mongo/tools/tool.cpp mongodb-src-r2.2.4/src/mongo/tools/tool.cpp
+--- mongodb-src-r2.2.4.orig/src/mongo/tools/tool.cpp	2013-03-31 21:41:49.000000000 -0500
++++ mongodb-src-r2.2.4/src/mongo/tools/tool.cpp	2013-05-02 14:51:31.858000000 -0500
+@@ -118,12 +118,6 @@ namespace mongo {
          // we want durability to be disabled.
          cmdLine.dur = false;
  
