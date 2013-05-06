@@ -128,10 +128,10 @@ software, default configuration files, and init scripts.
 %patch11 -p1 -b .atomics
 
 # spurious permissions
-#chmod -x README
+chmod -x README
 
 # wrong end-of-file encoding
-#sed -i 's/\r//' README
+sed -i 's/\r//' README
 
 %build
 # NOTE: Build flags must be EXACTLY the same in the install step!
