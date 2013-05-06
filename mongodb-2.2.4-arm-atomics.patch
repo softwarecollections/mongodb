@@ -1,6 +1,49 @@
-diff -urp mongodb-src-r2.2.4.orig/src/mongo/platform/atomic_intrinsics_gcc.h mongodb-src-r2.2.4/src/mongo/platform/atomic_intrinsics_gcc.h
+diff -upr mongodb-src-r2.2.4.orig/src/mongo/bson/util/atomic_int.h mongodb-src-r2.2.4/src/mongo/bson/util/atomic_int.h
+--- mongodb-src-r2.2.4.orig/src/mongo/bson/util/atomic_int.h	2013-03-31 21:41:49.000000000 -0500
++++ mongodb-src-r2.2.4/src/mongo/bson/util/atomic_int.h	2013-05-04 08:29:04.787000000 -0500
+@@ -24,6 +24,10 @@
+ 
+ #include "mongo/platform/compiler.h"
+ 
++#define GCC_VERSION (__GNUC__ * 10000                 \
++                     + __GNUC_MINOR__ * 100           \
++                     + __GNUC_PATCHLEVEL__)
++
+ namespace mongo {
+ 
+     /**
+@@ -72,6 +76,28 @@ namespace mongo {
+         InterlockedAdd((volatile long *)&x,by);
+     }
+ # endif
++#elif defined(GCC_VERSION) && GCC_VERSION >= 40700
++// in GCC version >= 4.7.0 we can use the built-in atomic operations
++
++    inline void AtomicUInt::set(unsigned newX) {
++        __atomic_store_n (&x, newX, __ATOMIC_SEQ_CST);
++    }
++    AtomicUInt AtomicUInt::operator++() {    // ++prefix
++        return __atomic_add_fetch(&x, 1, __ATOMIC_SEQ_CST);
++    }
++    AtomicUInt AtomicUInt::operator++(int) { // postfix++
++        return __atomic_fetch_add(&x, 1, __ATOMIC_SEQ_CST);
++    }
++    AtomicUInt AtomicUInt::operator--() {    // --prefix
++        return __atomic_add_fetch(&x, -1, __ATOMIC_SEQ_CST);
++    }
++    AtomicUInt AtomicUInt::operator--(int) { // postfix--
++        return __atomic_fetch_add(&x, -1, __ATOMIC_SEQ_CST);
++    }
++    void AtomicUInt::signedAdd(int by) {
++        __atomic_fetch_add(&x, by, __ATOMIC_SEQ_CST);
++    }
++
+ #elif defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4)
+     // this is in GCC >= 4.1
+     inline void AtomicUInt::set(unsigned newX) { __sync_synchronize(); x = newX; }
+diff -upr mongodb-src-r2.2.4.orig/src/mongo/platform/atomic_intrinsics_gcc.h mongodb-src-r2.2.4/src/mongo/platform/atomic_intrinsics_gcc.h
 --- mongodb-src-r2.2.4.orig/src/mongo/platform/atomic_intrinsics_gcc.h	2013-03-31 21:41:49.000000000 -0500
-+++ mongodb-src-r2.2.4/src/mongo/platform/atomic_intrinsics_gcc.h	2013-05-02 15:16:20.652000000 -0500
++++ mongodb-src-r2.2.4/src/mongo/platform/atomic_intrinsics_gcc.h	2013-05-04 08:29:04.780000000 -0500
 @@ -14,16 +14,56 @@
   */
  
@@ -67,10 +110,9 @@ diff -urp mongodb-src-r2.2.4.orig/src/mongo/platform/atomic_intrinsics_gcc.h mon
 +#endif // GCC_VERSION >= 40700
 +
  }  // namespace mongo
-Only in mongodb-src-r2.2.4/src/mongo/platform: atomic_intrinsics_gcc.h.atomics
-diff -urp mongodb-src-r2.2.4.orig/src/mongo/platform/bits.h mongodb-src-r2.2.4/src/mongo/platform/bits.h
+diff -upr mongodb-src-r2.2.4.orig/src/mongo/platform/bits.h mongodb-src-r2.2.4/src/mongo/platform/bits.h
 --- mongodb-src-r2.2.4.orig/src/mongo/platform/bits.h	2013-03-31 21:41:49.000000000 -0500
-+++ mongodb-src-r2.2.4/src/mongo/platform/bits.h	2013-05-02 15:16:20.653000000 -0500
++++ mongodb-src-r2.2.4/src/mongo/platform/bits.h	2013-05-04 08:29:04.781000000 -0500
 @@ -21,7 +21,7 @@
  
  #if defined(__x86_64__) || defined(__amd64__) || defined(_WIN64)
@@ -80,4 +122,3 @@ diff -urp mongodb-src-r2.2.4.orig/src/mongo/platform/bits.h mongodb-src-r2.2.4/s
  #define MONGO_PLATFORM_32
  #else
  #error "unknown platform"
-Only in mongodb-src-r2.2.4/src/mongo/platform: bits.h.atomics

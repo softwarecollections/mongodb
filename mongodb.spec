@@ -2,7 +2,7 @@
 
 Name:           mongodb
 Version:        2.2.4
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -128,10 +128,10 @@ software, default configuration files, and init scripts.
 %patch11 -p1 -b .atomics
 
 # spurious permissions
-chmod -x README
+#chmod -x README
 
 # wrong end-of-file encoding
-sed -i 's/\r//' README
+#sed -i 's/\r//' README
 
 %build
 # NOTE: Build flags must be EXACTLY the same in the install step!
@@ -299,6 +299,9 @@ fi
 %{_includedir}
 
 %changelog
+* Sat May 04 2013 David Marlin <dmarlin@redhat.com> - 2.2.4-2
+- Updated patch to work on both ARMv5 and ARMv7 (#921226)
+
 * Thu May 02 2013 Troy Dawson <tdawson@redhat.com> - 2.2.4-1
 - Bumped version up to 2.2.4
 - Refreshed all patches to 2.2.4
