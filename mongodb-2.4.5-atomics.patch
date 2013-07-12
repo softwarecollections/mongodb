@@ -1,6 +1,6 @@
-diff -upr mongodb-src-r2.2.4.orig/src/mongo/bson/util/atomic_int.h mongodb-src-r2.2.4/src/mongo/bson/util/atomic_int.h
---- mongodb-src-r2.2.4.orig/src/mongo/bson/util/atomic_int.h	2013-03-31 21:41:49.000000000 -0500
-+++ mongodb-src-r2.2.4/src/mongo/bson/util/atomic_int.h	2013-05-04 08:29:04.787000000 -0500
+diff -up mongodb-src-r2.4.5/src/mongo/bson/util/atomic_int.h.atomics mongodb-src-r2.4.5/src/mongo/bson/util/atomic_int.h
+--- mongodb-src-r2.4.5/src/mongo/bson/util/atomic_int.h.atomics	2013-07-02 15:27:08.000000000 -0400
++++ mongodb-src-r2.4.5/src/mongo/bson/util/atomic_int.h	2013-07-11 10:20:25.474610585 -0400
 @@ -24,6 +24,10 @@
  
  #include "mongo/platform/compiler.h"
@@ -41,10 +41,10 @@ diff -upr mongodb-src-r2.2.4.orig/src/mongo/bson/util/atomic_int.h mongodb-src-r
  #elif defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4)
      // this is in GCC >= 4.1
      inline void AtomicUInt::set(unsigned newX) { __sync_synchronize(); x = newX; }
-diff -upr mongodb-src-r2.2.4.orig/src/mongo/platform/atomic_intrinsics_gcc.h mongodb-src-r2.2.4/src/mongo/platform/atomic_intrinsics_gcc.h
---- mongodb-src-r2.2.4.orig/src/mongo/platform/atomic_intrinsics_gcc.h	2013-03-31 21:41:49.000000000 -0500
-+++ mongodb-src-r2.2.4/src/mongo/platform/atomic_intrinsics_gcc.h	2013-05-04 08:29:04.780000000 -0500
-@@ -14,16 +14,56 @@
+diff -up mongodb-src-r2.4.5/src/mongo/platform/atomic_intrinsics_gcc.h.atomics mongodb-src-r2.4.5/src/mongo/platform/atomic_intrinsics_gcc.h
+--- mongodb-src-r2.4.5/src/mongo/platform/atomic_intrinsics_gcc.h.atomics	2013-07-02 15:27:08.000000000 -0400
++++ mongodb-src-r2.4.5/src/mongo/platform/atomic_intrinsics_gcc.h	2013-07-11 10:20:25.479611190 -0400
+@@ -14,16 +14,60 @@
   */
  
  /**
@@ -85,6 +85,10 @@ diff -upr mongodb-src-r2.2.4.orig/src/mongo/platform/atomic_intrinsics_gcc.h mon
 +            return __atomic_load_n (value, __ATOMIC_SEQ_CST);
 +        }
 +
++        static T loadRelaxed(volatile const T* value) {
++            return *value;
++        }
++
 +        static void store(volatile T* dest, T newValue) {
 +            __atomic_store_n (dest, newValue, __ATOMIC_SEQ_CST);
 +        }
@@ -103,16 +107,16 @@ diff -upr mongodb-src-r2.2.4.orig/src/mongo/platform/atomic_intrinsics_gcc.h mon
      /**
       * Instantiation of AtomicIntrinsics<> for all word types T where sizeof<T> <= sizeof(void *).
       *
-@@ -159,4 +199,6 @@ namespace mongo {
+@@ -163,4 +207,6 @@ namespace mongo {
          ~AtomicIntrinsics();
      };
  
 +#endif // GCC_VERSION >= 40700
 +
  }  // namespace mongo
-diff -upr mongodb-src-r2.2.4.orig/src/mongo/platform/bits.h mongodb-src-r2.2.4/src/mongo/platform/bits.h
---- mongodb-src-r2.2.4.orig/src/mongo/platform/bits.h	2013-03-31 21:41:49.000000000 -0500
-+++ mongodb-src-r2.2.4/src/mongo/platform/bits.h	2013-05-04 08:29:04.781000000 -0500
+diff -up mongodb-src-r2.4.5/src/mongo/platform/bits.h.atomics mongodb-src-r2.4.5/src/mongo/platform/bits.h
+--- mongodb-src-r2.4.5/src/mongo/platform/bits.h.atomics	2013-07-02 15:27:08.000000000 -0400
++++ mongodb-src-r2.4.5/src/mongo/platform/bits.h	2013-07-11 10:20:25.484611795 -0400
 @@ -21,7 +21,7 @@
  
  #if defined(__x86_64__) || defined(__amd64__) || defined(_WIN64)
