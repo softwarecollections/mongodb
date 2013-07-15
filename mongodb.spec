@@ -2,7 +2,7 @@
 
 Name:           mongodb
 Version:        2.4.5
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -84,6 +84,7 @@ Summary:        MongoDB header files
 Group:          Development/Libraries
 Requires:       lib%{name} = %{version}-%{release}
 Requires:       boost-devel
+Provides:       mongodb-devel = %{version}-%{release}
 Obsoletes:      mongodb-devel < 2.4
 
 %description -n lib%{name}-devel
@@ -279,6 +280,9 @@ fi
 %{_includedir}
 
 %changelog
+* Fri Jul 12 2013 Troy Dawson <tdawson@redhat.com> - 2.4.5-4
+- Added Provides: mongodb-devel to libmongodb-devel
+
 * Fri Jul 12 2013 Troy Dawson <tdawson@redhat.com> - 2.4.5-3
 - Removed hardening section.  Currently doesn't work with 2.4.x
   Wasn't really being applied when we thought it was.
