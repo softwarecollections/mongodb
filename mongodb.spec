@@ -2,7 +2,7 @@
 
 Name:           mongodb
 Version:        2.4.5
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -280,6 +280,9 @@ fi
 %{_includedir}
 
 %changelog
+* Sun Jul 28 2013 Petr Machata <pmachata@redhat.com> - 2.4.5-6
+- Rebuild for boost 1.54.0
+
 * Sat Jul 27 2013 pmachata@redhat.com - 2.4.5-5
 - Rebuild for boost 1.54.0
 
