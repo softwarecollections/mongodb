@@ -1,8 +1,8 @@
 %global daemon mongod
 
 Name:           mongodb
-Version:        2.4.5
-Release:        6%{?dist}
+Version:        2.4.6
+Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -37,6 +37,7 @@ Patch10:        mongodb-2.4.5-atomics.patch
 ##Patch 11 https://jira.mongodb.org/browse/SERVER-9680
 Patch11:        mongodb-2.4.5-signed-char-for-BSONType-enumerations.patch
 
+Requires:       v8
 BuildRequires:  python-devel
 BuildRequires:  scons
 BuildRequires:  openssl-devel
@@ -95,6 +96,7 @@ a high-performance, open source, schema-free document-oriented database.
 Summary:        MongoDB server, sharding server and support scripts
 Group:          Applications/Databases
 Requires(pre):  shadow-utils
+Requires:       v8
 %if 0%{?fedora} >= 15
 Requires(post): systemd-units
 Requires(preun): systemd-units
@@ -280,6 +282,10 @@ fi
 %{_includedir}
 
 %changelog
+* Wed Aug 21 2013 Troy Dawson <tdawson@redhat.com> - 2.4.6-1
+- Updated to 2.4.6
+- Added Requires: v8  (#971595)
+
 * Sun Jul 28 2013 Petr Machata <pmachata@redhat.com> - 2.4.5-6
 - Rebuild for boost 1.54.0
 
