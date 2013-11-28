@@ -1,7 +1,7 @@
 %global daemon mongod
 
 Name:           mongodb
-Version:        2.4.6
+Version:        2.4.8
 Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
@@ -32,10 +32,6 @@ Patch7:         mongodb-2.4.5-pass-flags.patch
 Patch8:         mongodb-2.4.5-gcc48.patch
 ##Patch 10 - Support atomics on ARM
 Patch10:        mongodb-2.4.5-atomics.patch
-##From: Robie Basak <robie.basak@canonical.com>
-##  Use a signed char to store BSONType enumerations
-##Patch 11 https://jira.mongodb.org/browse/SERVER-9680
-Patch11:        mongodb-2.4.5-signed-char-for-BSONType-enumerations.patch
 
 Requires:       v8
 BuildRequires:  python-devel
@@ -86,7 +82,7 @@ Group:          Development/Libraries
 Requires:       lib%{name} = %{version}-%{release}
 Requires:       boost-devel
 Provides:       mongodb-devel = %{version}-%{release}
-Obsoletes:      mongodb-devel < 2.4
+Obsoletes:      mongodb-devel < 2.6
 
 %description -n lib%{name}-devel
 This package provides the header files and C++ driver for MongoDB. MongoDB is
@@ -121,7 +117,6 @@ software, default configuration files, and init scripts.
 %patch7 -p1
 %patch8 -p1
 %patch10 -p1 -b .atomics
-%patch11 -p1 -b .type
 
 # spurious permissions
 chmod -x README
@@ -182,7 +177,8 @@ install -p -D -m 644 %{SOURCE4} %{buildroot}%{_sysconfdir}/sysconfig/%{daemon}
 mkdir -p %{buildroot}%{_mandir}/man1
 cp -p debian/*.1 %{buildroot}%{_mandir}/man1/
 
-mkdir -p %{buildroot}%{_localstatedir}/run/%{name}
+#FIXME needed?
+#mkdir -p %{buildroot}%{_localstatedir}/run/%{name}
 
 %post -p /sbin/ldconfig
 
@@ -197,18 +193,19 @@ exit 0
 
 %post server
 %if 0%{?fedora} >= 15
-/bin/systemd-tmpfiles --create mongodb.conf
-/bin/systemctl daemon-reload &> /dev/null || :
+  # https://fedoraproject.org/wiki/Packaging:ScriptletSnippets#Systemd
+  %tmpfiles_create %{?scl_prefix}mongodb.conf
+  # daemon-reload
+  %systemd_postun
 %else
 /sbin/chkconfig --add %{daemon}
 %endif
 
-
 %preun server
 if [ $1 = 0 ] ; then
 %if 0%{?fedora} >= 15
-  /bin/systemctl --no-reload disable %{daemon}.service &> /dev/null
-  /bin/systemctl stop %{daemon}.service &> /dev/null
+  # --no-reload disable; stop
+  %systemd_preun %{daemon}.service
 %else
   /sbin/service %{daemon} stop >/dev/null 2>&1
   /sbin/chkconfig --del %{daemon}
@@ -218,11 +215,13 @@ fi
 
 %postun server
 %if 0%{?fedora} >= 15
-/bin/systemctl daemon-reload &> /dev/null
+  # daemon-reload
+  %systemd_postun
 %endif
 if [ "$1" -ge "1" ] ; then
 %if 0%{?fedora} >= 15
-   /bin/systemctl try-restart %{daemon}.service &> /dev/null
+  # try-restart
+  %systemd_postun_with_restart %{daemon}.service
 %else
    /sbin/service %{daemon} condrestart >/dev/null 2>&1 || :
 %endif
@@ -260,6 +259,10 @@ fi
 %doc README GNU-AGPL-3.0.txt APACHE-2.0.txt
 %{_libdir}/libmongoclient.so
 
+# usually contains ln -s /usr/lib/<???> lib<???>.so
+%files -n lib%{name}-devel
+%{_includedir}
+
 %files server
 %{_bindir}/mongod
 %{_bindir}/mongos
@@ -278,10 +281,12 @@ fi
 %{_initddir}/%{daemon}
 %endif
 
-%files -n lib%{name}-devel
-%{_includedir}
-
 %changelog
+* Thu Nov 28 2013 Jan Pacner <jpacner@redhat.com> - 2.4.8-1
+- new release
+- fix #1010712 (LimitNOFILE)
+- make sysconf options being respected
+
 * Wed Aug 21 2013 Troy Dawson <tdawson@redhat.com> - 2.4.6-1
 - Updated to 2.4.6
 - Added Requires: v8  (#971595)

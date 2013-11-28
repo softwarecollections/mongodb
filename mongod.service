@@ -8,6 +8,7 @@ User=mongodb
 PIDFile=/var/run/mongodb/mongodb.pid
 EnvironmentFile=/etc/sysconfig/mongod
 ExecStart=/usr/bin/mongod $OPTIONS run
+LimitNOFILE=64000
 
 [Install]
 WantedBy=multi-user.target

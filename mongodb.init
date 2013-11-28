@@ -11,12 +11,12 @@
 
 exec="/usr/bin/mongod"
 prog="mongod"
-pidfile=${PIDFILE-/var/run/mongodb/mongodb.pid}
 logfile="/var/log/mongodb/mongodb.log"
-options="$MONGODB_OPTIONS -f /etc/mongodb.conf"
 
 [ -e /etc/sysconfig/$prog ] && . /etc/sysconfig/$prog
 
+pidfile=${PIDFILE-/var/run/mongodb/mongodb.pid}
+options="$OPTIONS"
 lockfile="/var/lock/subsys/mongod"
 
 # Nicer version of killproc that does not kill mongodb when it takes
