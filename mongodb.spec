@@ -32,6 +32,8 @@ Patch7:         mongodb-2.4.5-pass-flags.patch
 Patch8:         mongodb-2.4.5-gcc48.patch
 ##Patch 10 - Support atomics on ARM
 Patch10:        mongodb-2.4.5-atomics.patch
+# fix arm build (fixed in upstream from 2.5.x)
+Patch11:        mongodb-2.4.5-signed-char-for-BSONType-enumerations.patch
 
 Requires:       v8
 BuildRequires:  python-devel
@@ -82,7 +84,7 @@ Group:          Development/Libraries
 Requires:       lib%{name} = %{version}-%{release}
 Requires:       boost-devel
 Provides:       mongodb-devel = %{version}-%{release}
-Obsoletes:      mongodb-devel < 2.6
+Obsoletes:      mongodb-devel < 2.4
 
 %description -n lib%{name}-devel
 This package provides the header files and C++ driver for MongoDB. MongoDB is
@@ -117,6 +119,7 @@ software, default configuration files, and init scripts.
 %patch7 -p1
 %patch8 -p1
 %patch10 -p1 -b .atomics
+%patch11 -p1 -b .type
 
 # spurious permissions
 chmod -x README
