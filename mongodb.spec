@@ -287,7 +287,7 @@ fi
 %changelog
 * Thu Nov 28 2013 Jan Pacner <jpacner@redhat.com> - 2.4.8-1
 - new release
-- fix #1010712 (LimitNOFILE)
+- Resolves: #1010712 (LimitNOFILE)
 - make sysconf options being respected
 
 * Wed Aug 21 2013 Troy Dawson <tdawson@redhat.com> - 2.4.6-1
