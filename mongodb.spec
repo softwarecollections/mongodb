@@ -1,7 +1,7 @@
 %global daemon mongod
 
 Name:           mongodb
-Version:        2.4.8
+Version:        2.4.9
 Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
@@ -36,18 +36,18 @@ Patch10:        mongodb-2.4.5-atomics.patch
 Patch11:        mongodb-2.4.5-signed-char-for-BSONType-enumerations.patch
 
 Requires:       v8
-BuildRequires:  python-devel
-BuildRequires:  scons
-BuildRequires:  openssl-devel
 BuildRequires:  boost-devel
-BuildRequires:  pcre-devel
-BuildRequires:  v8-devel
-BuildRequires:  readline-devel
 BuildRequires:  libpcap-devel
+BuildRequires:  openssl-devel
+BuildRequires:  pcre-devel
+BuildRequires:  python-devel
+BuildRequires:  readline-devel
+BuildRequires:  scons
 BuildRequires:  snappy-devel
-BuildRequires:  gperftools-devel
-%if 0%{?fedora} >= 15
 BuildRequires:  systemd
+BuildRequires:  v8-devel
+%ifnarch aarch64
+BuildRequires:  gperftools-devel
 %endif
 
 # Mongodb must run on a little-endian CPU (see bug #630898)
@@ -93,17 +93,11 @@ a high-performance, open source, schema-free document-oriented database.
 %package server
 Summary:        MongoDB server, sharding server and support scripts
 Group:          Applications/Databases
-Requires(pre):  shadow-utils
 Requires:       v8
-%if 0%{?fedora} >= 15
+Requires(pre):  shadow-utils
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
-%else
-Requires(post): chkconfig
-Requires(preun): chkconfig
-Requires(postun): initscripts
-%endif
 
 %description server
 This package provides the mongo server software, mongo sharding server
@@ -158,21 +152,17 @@ scons install \
         --nostrip \
         --ssl \
         --full
-rm -f %{buildroot}%{_libdir}/libmongoclient.a
-rm -f %{buildroot}%{_libdir}/../lib/libmongoclient.a
+
+find %{buildroot} -name '*.a' -exec rm -f {} ';'
 
 mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
 mkdir -p %{buildroot}%{_localstatedir}/log/%{name}
 mkdir -p %{buildroot}%{_localstatedir}/run/%{name}
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
 
-%if 0%{?fedora} >= 15
 mkdir -p %{buildroot}%{_unitdir}
 install -p -D -m 644 %{SOURCE5} %{buildroot}%{_libdir}/../lib/tmpfiles.d/mongodb.conf
 install -p -D -m 644 %{SOURCE6} %{buildroot}%{_unitdir}/%{daemon}.service
-%else
-install -p -D -m 755 %{SOURCE1} %{buildroot}%{_initddir}/%{daemon}
-%endif
 install -p -D -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
 install -p -D -m 644 %{SOURCE3} %{buildroot}%{_sysconfdir}/mongodb.conf
 install -p -D -m 644 %{SOURCE4} %{buildroot}%{_sysconfdir}/sysconfig/%{daemon}
@@ -183,9 +173,11 @@ cp -p debian/*.1 %{buildroot}%{_mandir}/man1/
 #FIXME needed?
 #mkdir -p %{buildroot}%{_localstatedir}/run/%{name}
 
-%post -p /sbin/ldconfig
+%post -n lib%{name}
+/sbin/ldconfig
 
-%postun -p /sbin/ldconfig
+%postun -n lib%{name}
+/sbin/ldconfig
 
 %pre server
 getent group %{name} >/dev/null || groupadd -r %{name}
@@ -195,39 +187,24 @@ useradd -r -g %{name} -u 184 -d %{_sharedstatedir}/%{name} -s /sbin/nologin \
 exit 0
 
 %post server
-%if 0%{?fedora} >= 15
-  # https://fedoraproject.org/wiki/Packaging:ScriptletSnippets#Systemd
-  %tmpfiles_create %{?scl_prefix}mongodb.conf
-  # daemon-reload
-  %systemd_postun
-%else
-/sbin/chkconfig --add %{daemon}
-%endif
+# https://fedoraproject.org/wiki/Packaging:ScriptletSnippets#Systemd
+%tmpfiles_create %{?scl_prefix}mongodb.conf
+# daemon-reload
+%systemd_postun
 
 %preun server
 if [ $1 = 0 ] ; then
-%if 0%{?fedora} >= 15
   # --no-reload disable; stop
   %systemd_preun %{daemon}.service
-%else
-  /sbin/service %{daemon} stop >/dev/null 2>&1
-  /sbin/chkconfig --del %{daemon}
-%endif
 fi
 
 
 %postun server
-%if 0%{?fedora} >= 15
-  # daemon-reload
-  %systemd_postun
-%endif
+# daemon-reload
+%systemd_postun
 if [ "$1" -ge "1" ] ; then
-%if 0%{?fedora} >= 15
-  # try-restart
-  %systemd_postun_with_restart %{daemon}.service
-%else
-   /sbin/service %{daemon} condrestart >/dev/null 2>&1 || :
-%endif
+# try-restart
+%systemd_postun_with_restart %{daemon}.service
 fi
 
 
@@ -271,20 +248,23 @@ fi
 %{_bindir}/mongos
 %{_mandir}/man1/mongod.1*
 %{_mandir}/man1/mongos.1*
-%dir %attr(0755, %{name}, root) %{_sharedstatedir}/%{name}
-%dir %attr(0755, %{name}, root) %{_localstatedir}/log/%{name}
-%dir %attr(0755, %{name}, root) %{_localstatedir}/run/%{name}
+%dir %attr(0750, %{name}, root) %{_sharedstatedir}/%{name}
+%dir %attr(0750, %{name}, root) %{_localstatedir}/log/%{name}
+%dir %attr(0750, %{name}, root) %{_localstatedir}/run/%{name}
 %config(noreplace) %{_sysconfdir}/logrotate.d/%{name}
 %config(noreplace) %{_sysconfdir}/mongodb.conf
 %config(noreplace) %{_sysconfdir}/sysconfig/%{daemon}
-%if 0%{?fedora} >= 15
 %{_unitdir}/*.service
 %{_libdir}/../lib/tmpfiles.d/mongodb.conf
-%else
-%{_initddir}/%{daemon}
-%endif
 
 %changelog
+* Sun Jan 19 2014 Peter Robinson <pbrobinson@fedoraproject.org> 2.4.9-1
+- Update to 2.4.9
+- Drop old < F-15 conditionals
+- Cleanup Spec
+- Run ldconfig for the lib package, not binary package
+- Don't make some directories world readable (RHBZ 857926)
+
 * Thu Nov 28 2013 Jan Pacner <jpacner@redhat.com> - 2.4.8-1
 - new release
 - Resolves: #1010712 (LimitNOFILE)
