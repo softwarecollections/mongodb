@@ -2,7 +2,7 @@
 
 Name:           mongodb
 Version:        2.4.9
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -35,7 +35,7 @@ Patch10:        mongodb-2.4.5-atomics.patch
 # fix arm build (fixed in upstream from 2.5.x)
 Patch11:        mongodb-2.4.5-signed-char-for-BSONType-enumerations.patch
 
-Requires:       v8
+Requires:       v8 >= 3.14.5.10
 BuildRequires:  boost-devel
 BuildRequires:  libpcap-devel
 BuildRequires:  openssl-devel
@@ -44,8 +44,10 @@ BuildRequires:  python-devel
 BuildRequires:  readline-devel
 BuildRequires:  scons
 BuildRequires:  snappy-devel
-BuildRequires:  systemd
 BuildRequires:  v8-devel
+%if 0%{?fedora} || 0%{?rhel} >= 7
+BuildRequires:  systemd
+%endif
 %ifnarch aarch64
 BuildRequires:  gperftools-devel
 %endif
@@ -81,7 +83,7 @@ This package provides the shared library for the MongoDB client.
 %package -n lib%{name}-devel
 Summary:        MongoDB header files
 Group:          Development/Libraries
-Requires:       lib%{name} = %{version}-%{release}
+Requires:       lib%{name}%{?_isa} = %{version}-%{release}
 Requires:       boost-devel
 Provides:       mongodb-devel = %{version}-%{release}
 Obsoletes:      mongodb-devel < 2.4
@@ -95,9 +97,15 @@ Summary:        MongoDB server, sharding server and support scripts
 Group:          Applications/Databases
 Requires:       v8
 Requires(pre):  shadow-utils
+%if 0%{?fedora} || 0%{?rhel} >= 7
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
+%else
+Requires(post): chkconfig
+Requires(preun): chkconfig
+Requires(postun): initscripts
+%endif
 
 %description server
 This package provides the mongo server software, mongo sharding server
@@ -160,18 +168,19 @@ mkdir -p %{buildroot}%{_localstatedir}/log/%{name}
 mkdir -p %{buildroot}%{_localstatedir}/run/%{name}
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
 
+%if 0%{?fedora} || 0%{?rhel} >= 7
 mkdir -p %{buildroot}%{_unitdir}
 install -p -D -m 644 %{SOURCE5} %{buildroot}%{_libdir}/../lib/tmpfiles.d/mongodb.conf
 install -p -D -m 644 %{SOURCE6} %{buildroot}%{_unitdir}/%{daemon}.service
+%else
+install -p -D -m 755 %{SOURCE1} %{buildroot}%{_initddir}/%{daemon}
+%endif
 install -p -D -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
 install -p -D -m 644 %{SOURCE3} %{buildroot}%{_sysconfdir}/mongodb.conf
 install -p -D -m 644 %{SOURCE4} %{buildroot}%{_sysconfdir}/sysconfig/%{daemon}
 
 mkdir -p %{buildroot}%{_mandir}/man1
 cp -p debian/*.1 %{buildroot}%{_mandir}/man1/
-
-#FIXME needed?
-#mkdir -p %{buildroot}%{_localstatedir}/run/%{name}
 
 %post -n lib%{name}
 /sbin/ldconfig
@@ -187,24 +196,39 @@ useradd -r -g %{name} -u 184 -d %{_sharedstatedir}/%{name} -s /sbin/nologin \
 exit 0
 
 %post server
+%if 0%{?fedora} || 0%{?rhel} >= 7
 # https://fedoraproject.org/wiki/Packaging:ScriptletSnippets#Systemd
 %tmpfiles_create %{?scl_prefix}mongodb.conf
 # daemon-reload
 %systemd_postun
+%else
+/sbin/chkconfig --add %{daemon}
+%endif
 
 %preun server
 if [ $1 = 0 ] ; then
+%if 0%{?fedora} || 0%{?rhel} >= 7
   # --no-reload disable; stop
   %systemd_preun %{daemon}.service
+%else
+  /sbin/service %{daemon} stop &>/dev/null
+  /sbin/chkconfig --del %{daemon}
+%endif
 fi
 
 
 %postun server
+%if 0%{?fedora} || 0%{?rhel} >= 7
 # daemon-reload
 %systemd_postun
+%endif
 if [ "$1" -ge "1" ] ; then
-# try-restart
-%systemd_postun_with_restart %{daemon}.service
+%if 0%{?fedora} || 0%{?rhel} >= 7
+  # try-restart
+  %systemd_postun_with_restart %{daemon}.service
+%else
+  /sbin/service %{daemon} condrestart &>/dev/null || :
+%endif
 fi
 
 
@@ -241,7 +265,7 @@ fi
 
 # usually contains ln -s /usr/lib/<???> lib<???>.so
 %files -n lib%{name}-devel
-%{_includedir}
+%{_includedir}/*
 
 %files server
 %{_bindir}/mongod
@@ -250,20 +274,36 @@ fi
 %{_mandir}/man1/mongos.1*
 %dir %attr(0750, %{name}, root) %{_sharedstatedir}/%{name}
 %dir %attr(0750, %{name}, root) %{_localstatedir}/log/%{name}
-%dir %attr(0750, %{name}, root) %{_localstatedir}/run/%{name}
 %config(noreplace) %{_sysconfdir}/logrotate.d/%{name}
 %config(noreplace) %{_sysconfdir}/mongodb.conf
 %config(noreplace) %{_sysconfdir}/sysconfig/%{daemon}
+%if 0%{?fedora} || 0%{?rhel} >= 7
 %{_unitdir}/*.service
 %{_libdir}/../lib/tmpfiles.d/mongodb.conf
+%else
+%dir %attr(0750, %{name}, root) %{_localstatedir}/run/%{name}
+%{_initddir}/%{daemon}
+%endif
 
 %changelog
+* Tue Feb 04 2014 Matthias Saou <matthias@saou.eu> 2.4.9-2
+- Merge el6 branch changes (we shouldn't start diverging now).
+- Re-introduce conditionals, but to still support EL6.
+- Include run directory only for EL6.
+- Don't own the /usr/include directory.
+- Make libmongodb requirement arch specific (#1010535).
+- Fix multiple_occurrences error from duplicate --quiet options (#1022476).
+- Fix broken v8 version specific requirement (#1027157).
+
 * Sun Jan 19 2014 Peter Robinson <pbrobinson@fedoraproject.org> 2.4.9-1
 - Update to 2.4.9
 - Drop old < F-15 conditionals
 - Cleanup Spec
 - Run ldconfig for the lib package, not binary package
 - Don't make some directories world readable (RHBZ 857926)
+
+* Mon Jan 06 2014 Jan Pacner <jpacner@redhat.com> - 2.4.6-3
+- Resolves: #1027157 (mongo shell sefgaults when using arbitrary v8 version)
 
 * Thu Nov 28 2013 Jan Pacner <jpacner@redhat.com> - 2.4.8-1
 - new release
@@ -365,7 +405,7 @@ fi
 - Update to 2.2.1
 
 * Tue Oct 02 2012 Troy Dawson <tdawson@redhat.com> - 2.2.0-6
-- full flag patch to get 32 bit builds to work 
+- full flag patch to get 32 bit builds to work
 
 * Tue Oct 02 2012 Troy Dawson <tdawson@redhat.com> - 2.2.0-5
 - shared libraries patch
