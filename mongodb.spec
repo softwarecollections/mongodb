@@ -2,7 +2,7 @@
 
 Name:           mongodb
 Version:        2.4.9
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -286,6 +286,9 @@ fi
 %endif
 
 %changelog
+* Fri Feb 14 2014 T.C. Hollingsworth <tchollingsworth@gmail.com> - 2.4.9-3
+- rebuild for icu-53 (via v8)
+
 * Tue Feb 04 2014 Matthias Saou <matthias@saou.eu> 2.4.9-2
 - Merge el6 branch changes (we shouldn't start diverging now).
 - Re-introduce conditionals, but to still support EL6.
