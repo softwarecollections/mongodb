@@ -2,7 +2,7 @@
 
 Name:           mongodb
 Version:        2.4.9
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -286,6 +286,9 @@ fi
 %endif
 
 %changelog
+* Fri May 23 2014 David Tardon <dtardon@redhat.com> - 2.4.9-4
+- rebuild for boost 1.55.0
+
 * Fri Feb 14 2014 T.C. Hollingsworth <tchollingsworth@gmail.com> - 2.4.9-3
 - rebuild for icu-53 (via v8)
 
