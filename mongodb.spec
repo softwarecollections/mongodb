@@ -2,7 +2,7 @@
 
 Name:           mongodb
 Version:        2.4.9
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -37,6 +37,7 @@ Patch11:        mongodb-2.4.5-signed-char-for-BSONType-enumerations.patch
 
 Requires:       v8 >= 3.14.5.10
 BuildRequires:  boost-devel
+BuildRequires:  gperftools-devel
 BuildRequires:  libpcap-devel
 BuildRequires:  openssl-devel
 BuildRequires:  pcre-devel
@@ -47,9 +48,6 @@ BuildRequires:  snappy-devel
 BuildRequires:  v8-devel
 %if 0%{?fedora} || 0%{?rhel} >= 7
 BuildRequires:  systemd
-%endif
-%ifnarch aarch64
-BuildRequires:  gperftools-devel
 %endif
 
 # Mongodb must run on a little-endian CPU (see bug #630898)
@@ -286,6 +284,9 @@ fi
 %endif
 
 %changelog
+* Sat Jun  7 2014 Peter Robinson <pbrobinson@fedoraproject.org> 2.4.9-7
+- aarch64 now has gperftools
+
 * Sat Jun 07 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.4.9-6
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_21_Mass_Rebuild
 
