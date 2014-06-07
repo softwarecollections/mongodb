@@ -2,7 +2,7 @@
 
 Name:           mongodb
 Version:        2.4.9
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -286,6 +286,9 @@ fi
 %endif
 
 %changelog
+* Sat Jun 07 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.4.9-6
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_Mass_Rebuild
+
 * Fri May 23 2014 Petr Machata <pmachata@redhat.com> - 2.4.9-5
 - Rebuild for boost 1.55.0
 
