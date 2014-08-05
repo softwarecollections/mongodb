@@ -6,8 +6,9 @@ After=syslog.target network.target
 Type=forking
 User=mongodb
 PIDFile=/var/run/mongodb/mongodb.pid
-EnvironmentFile=/etc/sysconfig/mongod
+EnvironmentFile=/etc/sysconfig/mongodb
 ExecStart=/usr/bin/mongod $OPTIONS run
+PrivateTmp=true
 LimitNOFILE=64000
 
 [Install]

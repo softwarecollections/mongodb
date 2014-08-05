@@ -1,8 +1,9 @@
-%global daemon mongod
+# for better compatibility with SCL spec file
+%global pkg_name mongodb
 
 Name:           mongodb
-Version:        2.4.9
-Release:        7%{?dist}
+Version:        2.6.3
+Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -11,41 +12,54 @@ License:        AGPLv3 and zlib and ASL 2.0
 # everything else is AGPLv3
 URL:            http://www.mongodb.org
 
-Source0:        http://fastdl.mongodb.org/src/%{name}-src-r%{version}.tar.gz
-Source1:        %{name}.init
-Source2:        %{name}.logrotate
-Source3:        %{name}.conf
-Source4:        %{daemon}.sysconf
-Source5:        %{name}-tmpfile
-Source6:        %{daemon}.service
-Patch1:         mongodb-2.4.5-no-term.patch
-##Patch 2 - make it possible to use system libraries
-Patch2:         mongodb-2.4.5-use-system-version.patch
-##Patch 5 - https://jira.mongodb.org/browse/SERVER-9210
-Patch5:         mongodb-2.4.5-boost-fix.patch
-##Patch 6 - https://github.com/mongodb/mongo/commit/1d42a534e0eb1e9ac868c0234495c0333d57d7c1
-Patch6:         mongodb-2.4.5-boost-size-fix.patch
-##Patch 7 - https://bugzilla.redhat.com/show_bug.cgi?id=958014
-## Need to work on getting this properly patched upstream
-Patch7:         mongodb-2.4.5-pass-flags.patch
-##Patch 8 - Compile with GCC 4.8
+Source0:        http://fastdl.mongodb.org/src/%{pkg_name}-src-r%{version}.tar.gz
+Source1:        %{pkg_name}-tmpfile
+Source2:        %{pkg_name}.logrotate
+Source3:        %{pkg_name}.conf
+Source4:        %{pkg_name}.init
+Source5:        %{pkg_name}.service
+Source6:        %{pkg_name}.sysconf
+Source7:        %{pkg_name}-shard.conf
+Source8:        %{pkg_name}-shard.init
+Source9:        %{pkg_name}-shard.service
+Source10:       %{pkg_name}-shard.sysconf
+
+#Patch1:         mongodb-2.4.5-no-term.patch
+#FIXME maybe boostlibs should have also 'iostream'
+#FIXME make it possible to use system libraries
+# scons --cpppath=%{lib} ...
+#Patch2:         mongodb-2.4.5-use-system-version.patch
+# https://jira.mongodb.org/browse/SERVER-9210
+# not needed any more
+#Patch5:         mongodb-2.4.5-boost-fix.patch
+# https://github.com/mongodb/mongo/commit/1d42a534e0eb1e9ac868c0234495c0333d57d7c1
+# not needed any more
+#Patch6:         mongodb-2.4.5-boost-size-fix.patch
+# https://bugzilla.redhat.com/show_bug.cgi?id=958014
+# need to work on getting this properly patched upstream
+#Patch7:         mongodb-2.4.5-pass-flags.patch
+# compile with GCC 4.8 (FIXME prepare patch for upstream)
 Patch8:         mongodb-2.4.5-gcc48.patch
-##Patch 10 - Support atomics on ARM
-Patch10:        mongodb-2.4.5-atomics.patch
+# support atomics on ARM
+# FIXME add requirement on GCC version >= 4.7.0 (it has built-in atomic operations)
+#Patch10:        mongodb-2.4.5-atomics.patch
 # fix arm build (fixed in upstream from 2.5.x)
-Patch11:        mongodb-2.4.5-signed-char-for-BSONType-enumerations.patch
+#Patch11:        mongodb-2.4.5-signed-char-for-BSONType-enumerations.patch
 
 Requires:       v8 >= 3.14.5.10
-BuildRequires:  boost-devel
-BuildRequires:  gperftools-devel
-BuildRequires:  libpcap-devel
-BuildRequires:  openssl-devel
 BuildRequires:  pcre-devel
-BuildRequires:  python-devel
-BuildRequires:  readline-devel
-BuildRequires:  scons
+BuildRequires:  boost-devel >= 1.44
+# provides tcmalloc
+BuildRequires:  gperftools-devel
 BuildRequires:  snappy-devel
 BuildRequires:  v8-devel
+#FIXME new
+BuildRequires:  libyaml-devel
+BuildRequires:  python-devel
+BuildRequires:  scons
+BuildRequires:  openssl-devel
+BuildRequires:  readline-devel
+BuildRequires:  libpcap-devel
 %if 0%{?fedora} || 0%{?rhel} >= 7
 BuildRequires:  systemd
 %endif
@@ -71,30 +85,31 @@ A key goal of MongoDB is to bridge the gap between key/value stores (which are
 fast and highly scalable) and traditional RDBMS systems (which are deep in
 functionality).
 
-%package -n lib%{name}
-Summary:        MongoDB shared libraries
-Group:          Development/Libraries
-
-%description -n lib%{name}
-This package provides the shared library for the MongoDB client.
-
-%package -n lib%{name}-devel
-Summary:        MongoDB header files
-Group:          Development/Libraries
-Requires:       lib%{name}%{?_isa} = %{version}-%{release}
-Requires:       boost-devel
-Provides:       mongodb-devel = %{version}-%{release}
-Obsoletes:      mongodb-devel < 2.4
-
-%description -n lib%{name}-devel
-This package provides the header files and C++ driver for MongoDB. MongoDB is
-a high-performance, open source, schema-free document-oriented database.
+# FIXME see below cxx-driver
+#%package -n lib%{pkg_name}
+#Summary:        MongoDB shared libraries
+#Group:          Development/Libraries
+#
+#%description -n lib%{pkg_name}
+#This package provides the shared library for the MongoDB client.
+#
+#%package -n lib%{pkg_name}-devel
+#Summary:        MongoDB header files
+#Group:          Development/Libraries
+#Requires:       lib%{pkg_name}%{?_isa} = %{version}-%{release}
+#Requires:       boost-devel
+#Provides:       %{pkg_name}-devel = %{version}-%{release}
+#Obsoletes:      %{pkg_name}-devel < 2.6
+#
+#%description -n lib%{pkg_name}-devel
+#This package provides the header files and C++ driver for MongoDB. MongoDB is
+#a high-performance, open source, schema-free document-oriented database.
 
 %package server
 Summary:        MongoDB server, sharding server and support scripts
 Group:          Applications/Databases
-Requires:       v8
 Requires(pre):  shadow-utils
+Requires:       v8
 %if 0%{?fedora} || 0%{?rhel} >= 7
 Requires(post): systemd-units
 Requires(preun): systemd-units
@@ -112,125 +127,182 @@ software, default configuration files, and init scripts.
 
 %prep
 %setup -q -n mongodb-src-r%{version}
-%patch1 -p1
-%patch2 -p1
-%patch5 -p1
-%patch6 -p1
-%patch7 -p1
+#%patch1 -p1
+#%patch2 -p1
+#%patch5 -p1
+#%patch6 -p1
+#%patch7 -p1
 %patch8 -p1
-%patch10 -p1 -b .atomics
-%patch11 -p1 -b .type
+#%patch10 -p1 -b .atomics
+#%patch11 -p1 -b .type
 
-# spurious permissions
-chmod -x README
+# FIXME report to upstream
+# "yaml-cpp/*.h" -> "*.h"
+#sed -i -r 's|yaml-cpp/||' src/third_party/yaml-cpp-0.5.1/include/yaml-cpp/yaml.h
+sed -i -r 's|yaml-cpp/||'       src/third_party/yaml-cpp-0.5.1/include/yaml-cpp/*.h
+sed -i -r 's|yaml-cpp/|../|'    src/third_party/yaml-cpp-0.5.1/include/yaml-cpp/*/*.h
+sed -i -r 's|yaml-cpp/|../../|' src/third_party/yaml-cpp-0.5.1/include/yaml-cpp/*/*/*.h
 
-# wrong end-of-file encoding
+# CRLF -> LF
 sed -i 's/\r//' README
+
+# disable propagation of $TERM env var into the Scons build system
+sed -i -r "s|(for key in \('HOME'), 'TERM'(\):)|\1\2|" SConstruct
 
 # Put lib dir in correct place
 # https://jira.mongodb.org/browse/SERVER-10049
-sed -i -e "s@\$INSTALL_DIR/lib@\$INSTALL_DIR/%{_lib}@g" src/SConscript.client
+# FIXME this should be in mongo-cxx-driver.spec (http://dochub.mongodb.org/core/build-cpp-driver)
+#   mongoclient
+#   install-mongoclient
+#   check-install-mongoclient
+#   clientTests
+#   smokeClient
+# FIXME remove these options from mongodb.spec as they don't do anything any more
+#   --sharedclient
+#   --full
+#   --disable-declspec-thread
+#sed -i -e "s@\$INSTALL_DIR/lib@\$INSTALL_DIR/%{_lib}@g" src/SConscript.client
+# versioned client library
+#(pre='EnsureSConsVersion(2, 3, 0)'
+#post='sharedLibEnv.AppendUnique(SHLIBVERSION="%{version}")'
+#sed -i -r \
+#  -e "s|([[:space:]]*)(sharedLibEnv *= *env.Clone.*)|\1$pre\n\1\2\n\1$post|" \
+#  -e "s|(sharedLibEnv.)Install *\(|\1InstallVersionedLib(|" \
+#  src/SConscript.client)
 
 %build
-# NOTE: Build flags must be EXACTLY the same in the install step!
-# If you fail to do this, mongodb will be built twice...
+# see add_option() calls in SConstruct for options
 scons \
         %{?_smp_mflags} \
-        --sharedclient \
-        --use-system-all \
+        --use-system-tcmalloc \
+        --use-system-pcre \
+        --use-system-boost \
+        --use-system-snappy \
+        --use-system-v8 \
         --prefix=%{buildroot}%{_prefix} \
         --extrapath=%{_prefix} \
         --usev8 \
         --nostrip \
         --ssl \
-        --full
+        --debug=findlibs \
+        --d
+# FIXME
+#        --cpppath=%{_lib} \
+#        --use-system-yaml \  # FIXME doesn't work because of weird problems
+#        --use-system-stemmer \  # FIXME libstemmer_c not available in Fedora
 
 %install
-# NOTE: Install flags must be EXACTLY the same in the build step!
-# If you fail to do this, mongodb will be built twice...
+# NOTE: If install flags are not EXACTLY the same as in %%build,
+#   mongodb will be built twice!
 scons install \
         %{?_smp_mflags} \
-        --sharedclient \
-        --use-system-all \
+        --use-system-tcmalloc \
+        --use-system-pcre \
+        --use-system-boost \
+        --use-system-snappy \
+        --use-system-v8 \
         --prefix=%{buildroot}%{_prefix} \
         --extrapath=%{_prefix} \
         --usev8 \
         --nostrip \
         --ssl \
-        --full
+        --debug=findlibs \
+        --d
+#        --cpppath=%{_lib} \
+#        --use-system-yaml \
+#        --use-system-stemmer \  # libstemmer_c not available in Fedora
 
-find %{buildroot} -name '*.a' -exec rm -f {} ';'
+# FIXME see above cxx-driver
+#rm -f %{buildroot}%{_lib}/libmongoclient.a
+#rm -f %{buildroot}%{_lib}/../lib/libmongoclient.a
 
-mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
-mkdir -p %{buildroot}%{_localstatedir}/log/%{name}
-mkdir -p %{buildroot}%{_localstatedir}/run/%{name}
+# TODO EPEL 4 & 5 expands to %{_prefix}/com, otherwise to /var/lib
+#mkdir -p %{buildroot}%{_sharedstatedir}/%{pkg_name}
+mkdir -p %{buildroot}%{_localstatedir}/lib/%{pkg_name}
+mkdir -p %{buildroot}%{_localstatedir}/log/%{pkg_name}
+mkdir -p %{buildroot}%{_localstatedir}/run/%{pkg_name}
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
 
 %if 0%{?fedora} || 0%{?rhel} >= 7
-mkdir -p %{buildroot}%{_unitdir}
-install -p -D -m 644 %{SOURCE5} %{buildroot}%{_libdir}/../lib/tmpfiles.d/mongodb.conf
-install -p -D -m 644 %{SOURCE6} %{buildroot}%{_unitdir}/%{daemon}.service
+install -p -D -m 644 "%{SOURCE1}"  %{buildroot}%{_libdir}/../lib/tmpfiles.d/%{pkg_name}.conf
+install -p -D -m 644 "%{SOURCE5}"  %{buildroot}%{_unitdir}/%{pkg_name}.service
+install -p -D -m 644 "%{SOURCE9}"  %{buildroot}%{_unitdir}/%{pkg_name}-shard.service
 %else
-install -p -D -m 755 %{SOURCE1} %{buildroot}%{_initddir}/%{daemon}
+install -p -D -m 755 "%{SOURCE4}"  %{buildroot}%{_root_initddir}/%{pkg_name}
+install -p -D -m 755 "%{SOURCE8}"  %{buildroot}%{_root_initddir}/%{pkg_name}-shard
 %endif
-install -p -D -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
-install -p -D -m 644 %{SOURCE3} %{buildroot}%{_sysconfdir}/mongodb.conf
-install -p -D -m 644 %{SOURCE4} %{buildroot}%{_sysconfdir}/sysconfig/%{daemon}
+install -p -D -m 644 "%{SOURCE2}"  %{buildroot}%{_sysconfdir}/logrotate.d/%{pkg_name}
+install -p -D -m 644 "%{SOURCE3}"  %{buildroot}%{_sysconfdir}/%{pkg_name}.conf
+install -p -D -m 644 "%{SOURCE7}"  %{buildroot}%{_sysconfdir}/%{pkg_name}-shard.conf
+install -p -D -m 644 "%{SOURCE6}"  %{buildroot}%{_sysconfdir}/sysconfig/%{pkg_name}
+install -p -D -m 644 "%{SOURCE10}" %{buildroot}%{_sysconfdir}/sysconfig/%{pkg_name}-shard
 
-mkdir -p %{buildroot}%{_mandir}/man1
-cp -p debian/*.1 %{buildroot}%{_mandir}/man1/
+install -d -m 755            %{buildroot}%{_mandir}/man1
+install -p -m 644 debian/*.1 %{buildroot}%{_mandir}/man1/
 
-%post -n lib%{name}
-/sbin/ldconfig
 
-%postun -n lib%{name}
-/sbin/ldconfig
+%post -p /sbin/ldconfig
+
+
+%postun -p /sbin/ldconfig
+
 
 %pre server
-getent group %{name} >/dev/null || groupadd -r %{name}
-getent passwd %{name} >/dev/null || \
-useradd -r -g %{name} -u 184 -d %{_sharedstatedir}/%{name} -s /sbin/nologin \
--c "MongoDB Database Server" %{name}
+getent group  %{pkg_name} >/dev/null || groupadd -r %{pkg_name}
+# TODO _sharedstatedir
+getent passwd %{pkg_name} >/dev/null || useradd -r -g %{pkg_name} -u 184 \
+  -d %{_localstatedir}/lib/%{pkg_name} -s /sbin/nologin \
+  -c "MongoDB Database Server" %{pkg_name}
 exit 0
+
 
 %post server
 %if 0%{?fedora} || 0%{?rhel} >= 7
-# https://fedoraproject.org/wiki/Packaging:ScriptletSnippets#Systemd
-%tmpfiles_create %{?scl_prefix}mongodb.conf
-# daemon-reload
-%systemd_postun
+  # https://fedoraproject.org/wiki/Packaging:ScriptletSnippets#Systemd
+  %tmpfiles_create %{pkg_name}.conf
+  # daemon-reload
+  %systemd_postun
 %else
-/sbin/chkconfig --add %{daemon}
+  /sbin/chkconfig --add %{pkg_name}
+  /sbin/chkconfig --add %{pkg_name}-shard
 %endif
 
 %preun server
-if [ $1 = 0 ] ; then
+if [ "$1" = 0 ]; then
 %if 0%{?fedora} || 0%{?rhel} >= 7
   # --no-reload disable; stop
-  %systemd_preun %{daemon}.service
+  %systemd_preun %{pkg_name}.service
+  %systemd_preun %{pkg_name}-shard.service
 %else
-  /sbin/service %{daemon} stop &>/dev/null
-  /sbin/chkconfig --del %{daemon}
+  /sbin/service %{pkg_name}       stop >/dev/null 2>&1
+  /sbin/service %{pkg_name}-shard stop >/dev/null 2>&1
+  /sbin/chkconfig --del %{pkg_name}
+  /sbin/chkconfig --del %{pkg_name}-shard
 %endif
 fi
 
 
 %postun server
 %if 0%{?fedora} || 0%{?rhel} >= 7
-# daemon-reload
-%systemd_postun
+  # daemon-reload
+  %systemd_postun
 %endif
 if [ "$1" -ge "1" ] ; then
 %if 0%{?fedora} || 0%{?rhel} >= 7
   # try-restart
-  %systemd_postun_with_restart %{daemon}.service
+  %systemd_postun_with_restart %{pkg_name}.service
+  %systemd_postun_with_restart %{pkg_name}-shard.service
 %else
-  /sbin/service %{daemon} condrestart &>/dev/null || :
+  /sbin/service %{pkg_name}       condrestart >/dev/null 2>&1 || :
+  /sbin/service %{pkg_name}-shard condrestart >/dev/null 2>&1 || :
 %endif
 fi
 
 
 %files
+%{!?_licensedir:%global license %%doc}
+%license GNU-AGPL-3.0.txt APACHE-2.0.txt
+%doc README
 %{_bindir}/bsondump
 %{_bindir}/mongo
 %{_bindir}/mongodump
@@ -257,33 +329,48 @@ fi
 %{_mandir}/man1/mongostat.1*
 %{_mandir}/man1/mongotop.1*
 
-%files -n lib%{name}
-%doc README GNU-AGPL-3.0.txt APACHE-2.0.txt
-%{_libdir}/libmongoclient.so
+#%files -n lib%{pkg_name}
+# FIXME see above cxx-driver
+#%{_lib}/libmongoclient.so.%{version}
 
 # usually contains ln -s /usr/lib/<???> lib<???>.so
-%files -n lib%{name}-devel
-%{_includedir}/*
+#%files -n lib%{pkg_name}-devel
+# FIXME see above cxx-driver
+# _includedir
+#%{_prefix}/include
 
 %files server
 %{_bindir}/mongod
 %{_bindir}/mongos
 %{_mandir}/man1/mongod.1*
 %{_mandir}/man1/mongos.1*
-%dir %attr(0750, %{name}, root) %{_sharedstatedir}/%{name}
-%dir %attr(0750, %{name}, root) %{_localstatedir}/log/%{name}
-%config(noreplace) %{_sysconfdir}/logrotate.d/%{name}
-%config(noreplace) %{_sysconfdir}/mongodb.conf
-%config(noreplace) %{_sysconfdir}/sysconfig/%{daemon}
+# TODO
+#%dir %attr(0750, %{pkg_name}, root) %{_sharedstatedir}/%{pkg_name}
+%dir %attr(0750, %{pkg_name}, root) %{_localstatedir}/lib/%{pkg_name}
+%dir %attr(0750, %{pkg_name}, root) %{_localstatedir}/log/%{pkg_name}
+%dir %attr(0750, %{pkg_name}, root) %{_localstatedir}/run/%{pkg_name}
+%config(noreplace) %{_sysconfdir}/logrotate.d/%{pkg_name}
+%config(noreplace) %{_sysconfdir}/%{pkg_name}.conf
+%config(noreplace) %{_sysconfdir}/%{pkg_name}-shard.conf
+%config(noreplace) %{_sysconfdir}/sysconfig/%{pkg_name}
+%config(noreplace) %{_sysconfdir}/sysconfig/%{pkg_name}-shard
 %if 0%{?fedora} || 0%{?rhel} >= 7
+%{_libdir}/../lib/tmpfiles.d/%{pkg_name}.conf
 %{_unitdir}/*.service
-%{_libdir}/../lib/tmpfiles.d/mongodb.conf
 %else
-%dir %attr(0750, %{name}, root) %{_localstatedir}/run/%{name}
-%{_initddir}/%{daemon}
+%{_initddir}/%{pkg_name}
+%{_initddir}/%{pkg_name}-shard
 %endif
 
 %changelog
+* Wed Jul  9 2014 Jan Pacner <jpacner@redhat.com> - 2.6.3-1
+- Resolves: #1103163 new major release with major differences
+- add sharding server daemon init/unit files (and rename existing)
+- use ld library path from env
+- spec cleanup/clarification
+- Resolves: #1047858 (RFE: Turn on PrivateTmp and relocate unix socket file)
+- Related: #963824 (bloated binaries; splitting according to latest upstream)
+
 * Sat Jun  7 2014 Peter Robinson <pbrobinson@fedoraproject.org> 2.4.9-7
 - aarch64 now has gperftools
 
@@ -295,6 +382,7 @@ fi
 
 * Fri May 23 2014 David Tardon <dtardon@redhat.com> - 2.4.9-4
 - rebuild for boost 1.55.0
+
 
 * Fri Feb 14 2014 T.C. Hollingsworth <tchollingsworth@gmail.com> - 2.4.9-3
 - rebuild for icu-53 (via v8)
