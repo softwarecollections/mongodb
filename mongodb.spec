@@ -1,5 +1,7 @@
 # for better compatibility with SCL spec file
 %global pkg_name mongodb
+# EPEL 4 & 5 expands to %{_prefix}/com, otherwise to /var/lib
+%{!?_sharedstatedir:%global _sharedstatedir %{_localstatedir}/lib/}
 
 Name:           mongodb
 Version:        2.6.3
@@ -216,9 +218,7 @@ scons install \
 #rm -f %{buildroot}%{_lib}/libmongoclient.a
 #rm -f %{buildroot}%{_lib}/../lib/libmongoclient.a
 
-# TODO EPEL 4 & 5 expands to %{_prefix}/com, otherwise to /var/lib
-#mkdir -p %{buildroot}%{_sharedstatedir}/%{pkg_name}
-mkdir -p %{buildroot}%{_localstatedir}/lib/%{pkg_name}
+mkdir -p %{buildroot}%{_sharedstatedir}/%{pkg_name}
 mkdir -p %{buildroot}%{_localstatedir}/log/%{pkg_name}
 mkdir -p %{buildroot}%{_localstatedir}/run/%{pkg_name}
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
@@ -344,8 +344,7 @@ fi
 %{_mandir}/man1/mongod.1*
 %{_mandir}/man1/mongos.1*
 # TODO
-#%dir %attr(0750, %{pkg_name}, root) %{_sharedstatedir}/%{pkg_name}
-%dir %attr(0750, %{pkg_name}, root) %{_localstatedir}/lib/%{pkg_name}
+%dir %attr(0750, %{pkg_name}, root) %{_sharedstatedir}/%{pkg_name}
 %dir %attr(0750, %{pkg_name}, root) %{_localstatedir}/log/%{pkg_name}
 %dir %attr(0750, %{pkg_name}, root) %{_localstatedir}/run/%{pkg_name}
 %config(noreplace) %{_sysconfdir}/logrotate.d/%{pkg_name}
