@@ -60,7 +60,7 @@ BuildRequires:  scons
 BuildRequires:  openssl-devel
 BuildRequires:  readline-devel
 BuildRequires:  libpcap-devel
-%if 0%{?fedora} || 0%{?rhel} >= 7
+%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
 BuildRequires:  systemd
 %endif
 
@@ -110,7 +110,7 @@ Summary:        MongoDB server, sharding server and support scripts
 Group:          Applications/Databases
 Requires(pre):  shadow-utils
 Requires:       v8
-%if 0%{?fedora} || 0%{?rhel} >= 7
+%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
@@ -223,8 +223,8 @@ mkdir -p %{buildroot}%{_localstatedir}/log/%{pkg_name}
 mkdir -p %{buildroot}%{_localstatedir}/run/%{pkg_name}
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
 
-%if 0%{?fedora} || 0%{?rhel} >= 7
-install -p -D -m 644 "%{SOURCE1}"  %{buildroot}%{_libdir}/../lib/tmpfiles.d/%{pkg_name}.conf
+%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
+install -p -D -m 644 "%{SOURCE1}"  %{buildroot}%{_tmpfilesdir}/%{pkg_name}.conf
 install -p -D -m 644 "%{SOURCE5}"  %{buildroot}%{_unitdir}/%{pkg_name}.service
 install -p -D -m 644 "%{SOURCE9}"  %{buildroot}%{_unitdir}/%{pkg_name}-shard.service
 %else
@@ -257,9 +257,8 @@ exit 0
 
 
 %post server
-%if 0%{?fedora} || 0%{?rhel} >= 7
+%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
   # https://fedoraproject.org/wiki/Packaging:ScriptletSnippets#Systemd
-  %tmpfiles_create %{pkg_name}.conf
   # daemon-reload
   %systemd_postun
 %else
@@ -269,7 +268,7 @@ exit 0
 
 %preun server
 if [ "$1" = 0 ]; then
-%if 0%{?fedora} || 0%{?rhel} >= 7
+%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
   # --no-reload disable; stop
   %systemd_preun %{pkg_name}.service
   %systemd_preun %{pkg_name}-shard.service
@@ -283,12 +282,12 @@ fi
 
 
 %postun server
-%if 0%{?fedora} || 0%{?rhel} >= 7
+%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
   # daemon-reload
   %systemd_postun
 %endif
-if [ "$1" -ge "1" ] ; then
-%if 0%{?fedora} || 0%{?rhel} >= 7
+if [ "$1" -ge 1 ] ; then
+%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
   # try-restart
   %systemd_postun_with_restart %{pkg_name}.service
   %systemd_postun_with_restart %{pkg_name}-shard.service
@@ -354,8 +353,8 @@ fi
 %config(noreplace) %{_sysconfdir}/%{pkg_name}-shard.conf
 %config(noreplace) %{_sysconfdir}/sysconfig/%{pkg_name}
 %config(noreplace) %{_sysconfdir}/sysconfig/%{pkg_name}-shard
-%if 0%{?fedora} || 0%{?rhel} >= 7
-%{_libdir}/../lib/tmpfiles.d/%{pkg_name}.conf
+%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
+%{_tmpfilesdir}/%{pkg_name}.conf
 %{_unitdir}/*.service
 %else
 %{_initddir}/%{pkg_name}

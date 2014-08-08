@@ -139,9 +139,6 @@ rh_status_q() {
     rh_status >/dev/null 2>&1
 }
 
-. __SCL_SCRIPTS__/service-environment
-. scl_source enable __list of scls__
-
 case "$1" in
     start)
         rh_status_q && exit 0
