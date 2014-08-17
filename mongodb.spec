@@ -5,7 +5,7 @@
 
 Name:           mongodb
 Version:        2.6.3
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -361,6 +361,9 @@ fi
 %endif
 
 %changelog
+* Sun Aug 17 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.6.3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_22_Mass_Rebuild
+
 * Wed Jul  9 2014 Jan Pacner <jpacner@redhat.com> - 2.6.3-1
 - Resolves: #1103163 new major release with major differences
 - add sharding server daemon init/unit files (and rename existing)
