@@ -19,11 +19,11 @@ Source1:        %{pkg_name}-tmpfile
 Source2:        %{pkg_name}.logrotate
 Source3:        %{pkg_name}.conf
 Source4:        %{pkg_name}.init
-Source5:        %{pkg_name}.service
+Source5:        mongod.service
 Source6:        %{pkg_name}.sysconf
 Source7:        %{pkg_name}-shard.conf
 Source8:        %{pkg_name}-shard.init
-Source9:        %{pkg_name}-shard.service
+Source9:        mongos.service
 Source10:       %{pkg_name}-shard.sysconf
 
 #Patch1:         mongodb-2.4.5-no-term.patch
@@ -361,8 +361,10 @@ fi
 %endif
 
 %changelog
+
 * Thu Oct 9 2014 Marek Skalicky <mskalick@redhat.com> 2.6.5-1
 - Updated to version 2.6.5
+- Renamed sysmted service files (to reflect mainstream names)
 
 * Sun Aug 17 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.6.3-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_21_22_Mass_Rebuild
