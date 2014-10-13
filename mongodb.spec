@@ -4,8 +4,8 @@
 %{!?_sharedstatedir:%global _sharedstatedir %{_localstatedir}/lib/}
 
 Name:           mongodb
-Version:        2.6.3
-Release:        2%{?dist}
+Version:        2.6.5
+Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -361,6 +361,9 @@ fi
 %endif
 
 %changelog
+* Thu Oct 9 2014 Marek Skalicky <mskalick@redhat.com> 2.6.5-1
+- Updated to version 2.6.5
+
 * Sun Aug 17 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.6.3-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_21_22_Mass_Rebuild
 
