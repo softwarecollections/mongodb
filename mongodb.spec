@@ -329,6 +329,7 @@ fi
 %changelog
 * Thu Oct 9 2014 Marek Skalicky <mskalick@redhat.com> 2.6.5-2
 - Corrected/Finished renaming services and pid files
+- Changed default mongos ports
 
 * Thu Oct 9 2014 Marek Skalicky <mskalick@redhat.com> 2.6.5-1
 - Updated to version 2.6.5
