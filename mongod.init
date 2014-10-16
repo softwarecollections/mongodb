@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# mongodb      init file for starting up the MongoDB server
+# mongod       init file for starting up the MongoDB server
 #
 # chkconfig:   - 90 10
 # description: Starts and stops the MongDB daemon that handles all \
@@ -15,7 +15,7 @@ logfile="/var/log/mongodb/mongodb.log"
 
 [ -e /etc/sysconfig/$prog ] && . /etc/sysconfig/$prog
 
-pidfile=${PIDFILE-/var/run/mongodb/mongodb.pid}
+pidfile=${PIDFILE-/var/run/mongodb/mongod.pid}
 options="$OPTIONS"
 lockfile="/var/lock/subsys/mongod"
 

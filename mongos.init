@@ -1,21 +1,21 @@
 #!/bin/sh
 #
-# mongodb      init file for starting up the MongoDB server
+# mongos       init file for starting up the MongoDB shard server
 #
 # chkconfig:   - 90 10
-# description: Starts and stops the MongDB daemon that handles all \
+# description: Starts and stops the MongoDB shard daemon that handles all \
 #              database requests.
 
 # Source function library.
 . /etc/rc.d/init.d/functions
 
 exec="/usr/bin/mongos"
-prog="mongodb-shard"
+prog="mongos"
 logfile="/var/log/mongodb/mongodb-shard.log"
 
 [ -e /etc/sysconfig/$prog ] && . /etc/sysconfig/$prog
 
-pidfile=${PIDFILE-/var/run/mongodb/mongodb-shard.pid}
+pidfile=${PIDFILE-/var/run/mongodb/mongos.pid}
 options="$OPTIONS"
 lockfile="/var/lock/subsys/$prog"
 

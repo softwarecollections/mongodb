@@ -2,10 +2,14 @@
 %global pkg_name mongodb
 # EPEL 4 & 5 expands to %{_prefix}/com, otherwise to /var/lib
 %{!?_sharedstatedir:%global _sharedstatedir %{_localstatedir}/lib/}
+# mongod daemon
+%global daemon mongod
+# mongos daemon
+%global daemonshard mongos
 
 Name:           mongodb
 Version:        2.6.5
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -18,13 +22,13 @@ Source0:        http://fastdl.mongodb.org/src/%{pkg_name}-src-r%{version}.tar.gz
 Source1:        %{pkg_name}-tmpfile
 Source2:        %{pkg_name}.logrotate
 Source3:        %{pkg_name}.conf
-Source4:        %{pkg_name}.init
-Source5:        mongod.service
-Source6:        %{pkg_name}.sysconf
+Source4:        %{daemon}.init
+Source5:        %{daemon}.service
+Source6:        %{daemon}.sysconf
 Source7:        %{pkg_name}-shard.conf
-Source8:        %{pkg_name}-shard.init
-Source9:        mongos.service
-Source10:       %{pkg_name}-shard.sysconf
+Source8:        %{deamonshard}.init
+Source9:        %{daemonshard}.service
+Source10:       %{daemonshard}.sysconf
 
 #Patch1:         mongodb-2.4.5-no-term.patch
 #FIXME maybe boostlibs should have also 'iostream'
@@ -87,25 +91,6 @@ A key goal of MongoDB is to bridge the gap between key/value stores (which are
 fast and highly scalable) and traditional RDBMS systems (which are deep in
 functionality).
 
-# FIXME see below cxx-driver
-#%package -n lib%{pkg_name}
-#Summary:        MongoDB shared libraries
-#Group:          Development/Libraries
-#
-#%description -n lib%{pkg_name}
-#This package provides the shared library for the MongoDB client.
-#
-#%package -n lib%{pkg_name}-devel
-#Summary:        MongoDB header files
-#Group:          Development/Libraries
-#Requires:       lib%{pkg_name}%{?_isa} = %{version}-%{release}
-#Requires:       boost-devel
-#Provides:       %{pkg_name}-devel = %{version}-%{release}
-#Obsoletes:      %{pkg_name}-devel < 2.6
-#
-#%description -n lib%{pkg_name}-devel
-#This package provides the header files and C++ driver for MongoDB. MongoDB is
-#a high-performance, open source, schema-free document-oriented database.
 
 %package server
 Summary:        MongoDB server, sharding server and support scripts
@@ -153,12 +138,6 @@ sed -i -r "s|(for key in \('HOME'), 'TERM'(\):)|\1\2|" SConstruct
 
 # Put lib dir in correct place
 # https://jira.mongodb.org/browse/SERVER-10049
-# FIXME this should be in mongo-cxx-driver.spec (http://dochub.mongodb.org/core/build-cpp-driver)
-#   mongoclient
-#   install-mongoclient
-#   check-install-mongoclient
-#   clientTests
-#   smokeClient
 # FIXME remove these options from mongodb.spec as they don't do anything any more
 #   --sharedclient
 #   --full
@@ -214,10 +193,6 @@ scons install \
 #        --use-system-yaml \
 #        --use-system-stemmer \  # libstemmer_c not available in Fedora
 
-# FIXME see above cxx-driver
-#rm -f %{buildroot}%{_lib}/libmongoclient.a
-#rm -f %{buildroot}%{_lib}/../lib/libmongoclient.a
-
 mkdir -p %{buildroot}%{_sharedstatedir}/%{pkg_name}
 mkdir -p %{buildroot}%{_localstatedir}/log/%{pkg_name}
 mkdir -p %{buildroot}%{_localstatedir}/run/%{pkg_name}
@@ -225,17 +200,17 @@ mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
 
 %if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
 install -p -D -m 644 "%{SOURCE1}"  %{buildroot}%{_tmpfilesdir}/%{pkg_name}.conf
-install -p -D -m 644 "%{SOURCE5}"  %{buildroot}%{_unitdir}/%{pkg_name}.service
-install -p -D -m 644 "%{SOURCE9}"  %{buildroot}%{_unitdir}/%{pkg_name}-shard.service
+install -p -D -m 644 "%{SOURCE5}"  %{buildroot}%{_unitdir}/%{daemon}.service
+install -p -D -m 644 "%{SOURCE9}"  %{buildroot}%{_unitdir}/%{daemonshard}.service
 %else
-install -p -D -m 755 "%{SOURCE4}"  %{buildroot}%{_root_initddir}/%{pkg_name}
-install -p -D -m 755 "%{SOURCE8}"  %{buildroot}%{_root_initddir}/%{pkg_name}-shard
+install -p -D -m 755 "%{SOURCE4}"  %{buildroot}%{_root_initddir}/%{daemon}
+install -p -D -m 755 "%{SOURCE8}"  %{buildroot}%{_root_initddir}/%{daemonshard}
 %endif
 install -p -D -m 644 "%{SOURCE2}"  %{buildroot}%{_sysconfdir}/logrotate.d/%{pkg_name}
 install -p -D -m 644 "%{SOURCE3}"  %{buildroot}%{_sysconfdir}/%{pkg_name}.conf
 install -p -D -m 644 "%{SOURCE7}"  %{buildroot}%{_sysconfdir}/%{pkg_name}-shard.conf
-install -p -D -m 644 "%{SOURCE6}"  %{buildroot}%{_sysconfdir}/sysconfig/%{pkg_name}
-install -p -D -m 644 "%{SOURCE10}" %{buildroot}%{_sysconfdir}/sysconfig/%{pkg_name}-shard
+install -p -D -m 644 "%{SOURCE6}"  %{buildroot}%{_sysconfdir}/sysconfig/%{daemon}
+install -p -D -m 644 "%{SOURCE10}" %{buildroot}%{_sysconfdir}/sysconfig/%{daemonshard}
 
 install -d -m 755            %{buildroot}%{_mandir}/man1
 install -p -m 644 debian/*.1 %{buildroot}%{_mandir}/man1/
@@ -262,21 +237,21 @@ exit 0
   # daemon-reload
   %systemd_postun
 %else
-  /sbin/chkconfig --add %{pkg_name}
-  /sbin/chkconfig --add %{pkg_name}-shard
+  /sbin/chkconfig --add %{daemon}
+  /sbin/chkconfig --add %{daemonshard}
 %endif
 
 %preun server
 if [ "$1" = 0 ]; then
 %if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
   # --no-reload disable; stop
-  %systemd_preun %{pkg_name}.service
-  %systemd_preun %{pkg_name}-shard.service
+  %systemd_preun %{daemon}.service
+  %systemd_preun %{daemonshard}.service
 %else
-  /sbin/service %{pkg_name}       stop >/dev/null 2>&1
-  /sbin/service %{pkg_name}-shard stop >/dev/null 2>&1
-  /sbin/chkconfig --del %{pkg_name}
-  /sbin/chkconfig --del %{pkg_name}-shard
+  /sbin/service %{daemon}       stop >/dev/null 2>&1
+  /sbin/service %{daemonshard}  stop >/dev/null 2>&1
+  /sbin/chkconfig --del %{daemon}
+  /sbin/chkconfig --del %{daemonshard}
 %endif
 fi
 
@@ -289,11 +264,11 @@ fi
 if [ "$1" -ge 1 ] ; then
 %if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
   # try-restart
-  %systemd_postun_with_restart %{pkg_name}.service
-  %systemd_postun_with_restart %{pkg_name}-shard.service
+  %systemd_postun_with_restart %{daemon}.service
+  %systemd_postun_with_restart %{daemonshard}.service
 %else
-  /sbin/service %{pkg_name}       condrestart >/dev/null 2>&1 || :
-  /sbin/service %{pkg_name}-shard condrestart >/dev/null 2>&1 || :
+  /sbin/service %{daemon}       condrestart >/dev/null 2>&1 || :
+  /sbin/service %{daemonshard}  condrestart >/dev/null 2>&1 || :
 %endif
 fi
 
@@ -328,15 +303,6 @@ fi
 %{_mandir}/man1/mongostat.1*
 %{_mandir}/man1/mongotop.1*
 
-#%files -n lib%{pkg_name}
-# FIXME see above cxx-driver
-#%{_lib}/libmongoclient.so.%{version}
-
-# usually contains ln -s /usr/lib/<???> lib<???>.so
-#%files -n lib%{pkg_name}-devel
-# FIXME see above cxx-driver
-# _includedir
-#%{_prefix}/include
 
 %files server
 %{_bindir}/mongod
@@ -350,17 +316,19 @@ fi
 %config(noreplace) %{_sysconfdir}/logrotate.d/%{pkg_name}
 %config(noreplace) %{_sysconfdir}/%{pkg_name}.conf
 %config(noreplace) %{_sysconfdir}/%{pkg_name}-shard.conf
-%config(noreplace) %{_sysconfdir}/sysconfig/%{pkg_name}
-%config(noreplace) %{_sysconfdir}/sysconfig/%{pkg_name}-shard
+%config(noreplace) %{_sysconfdir}/sysconfig/%{daemon}
+%config(noreplace) %{_sysconfdir}/sysconfig/%{daemonshard}
 %if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
 %{_tmpfilesdir}/%{pkg_name}.conf
 %{_unitdir}/*.service
 %else
-%{_initddir}/%{pkg_name}
-%{_initddir}/%{pkg_name}-shard
+%{_initddir}/%{daemon}
+%{_initddir}/%{daemonshard}
 %endif
 
 %changelog
+* Thu Oct 9 2014 Marek Skalicky <mskalick@redhat.com> 2.6.5-2
+- Corrected/Finished renaming services and pid files
 
 * Thu Oct 9 2014 Marek Skalicky <mskalick@redhat.com> 2.6.5-1
 - Updated to version 2.6.5
