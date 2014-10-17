@@ -26,7 +26,7 @@ Source4:        %{daemon}.init
 Source5:        %{daemon}.service
 Source6:        %{daemon}.sysconf
 Source7:        %{pkg_name}-shard.conf
-Source8:        %{deamonshard}.init
+Source8:        %{daemonshard}.init
 Source9:        %{daemonshard}.service
 Source10:       %{daemonshard}.sysconf
 
