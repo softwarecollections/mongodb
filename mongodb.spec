@@ -9,7 +9,7 @@
 
 Name:           mongodb
 Version:        2.6.6
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -69,6 +69,7 @@ BuildRequires:  libpcap-devel
 %if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
 BuildRequires:  systemd
 %endif
+BuildRequires:  python-pymongo
 
 # Mongodb must run on a little-endian CPU (see bug #630898)
 ExcludeArch:    ppc ppc64 %{sparc} s390 s390x
@@ -112,6 +113,18 @@ This package provides the mongo server software, mongo sharding server
 software, default configuration files, and init scripts.
 
 
+%package test
+Summary:          MongoDB test suite
+Group:            Applications/Databases
+Requires:         %{name}%{?_isa} = %{version}-%{release}
+Requires:         %{name}-server%{?_isa} = %{version}-%{release}
+Requires:         python-pymongo
+
+%description test
+This package contains the regression test suite distributed with
+the MongoDB sources.
+
+
 %prep
 %setup -q -n mongodb-src-r%{version}
 #%patch1 -p1
@@ -136,6 +149,15 @@ sed -i 's/\r//' README
 # disable propagation of $TERM env var into the Scons build system
 sed -i -r "s|(for key in \('HOME'), 'TERM'(\):)|\1\2|" SConstruct
 
+
+# disable run test and perftest programs
+sed -i -r "s|^([[:space:]]*)(if suite == 'test':)|\1\2\n\1    break|"    buildscripts/smoke.py
+sed -i -r "s|^([[:space:]]*)(elif suite == 'perf':)|\1\2\n\1    break|"    buildscripts/smoke.py
+
+sed -i -r "s|(default=os.path.join\()mongo_repo(, 'mongod'\))|\1%{_bindir}\2|"    buildscripts/smoke.py
+sed -i -r "s|(default=os.path.join\()mongo_repo(, 'mongo'\))|\1%{_bindir}\2|"    buildscripts/smoke.py
+sed -i -r "s|(os.path.join\()mongo_repo(, program)|\1%{_bindir}\2|"    buildscripts/smoke.py
+
 # Put lib dir in correct place
 # https://jira.mongodb.org/browse/SERVER-10049
 # FIXME remove these options from mongodb.spec as they don't do anything any more
@@ -153,7 +175,7 @@ sed -i -r "s|(for key in \('HOME'), 'TERM'(\):)|\1\2|" SConstruct
 
 %build
 # see add_option() calls in SConstruct for options
-scons \
+scons all \
         %{?_smp_mflags} \
         --use-system-tcmalloc \
         --use-system-pcre \
@@ -214,6 +236,30 @@ install -p -D -m 644 "%{SOURCE10}" %{buildroot}%{_sysconfdir}/sysconfig/%{daemon
 
 install -d -m 755            %{buildroot}%{_mandir}/man1
 install -p -m 644 debian/*.1 %{buildroot}%{_mandir}/man1/
+
+mkdir -p %{buildroot}%{_datadir}/%{pkg_name}-test
+install -p -D -m 755    buildscripts/smoke.py   %{buildroot}%{_datadir}/%{pkg_name}-test/
+cp -R                   jstests                 %{buildroot}%{_datadir}/%{pkg_name}-test/
+
+
+%check
+# More info about testing:
+# http://www.mongodb.org/about/contributors/tutorial/test-the-mongodb-server/
+# Run new-style unit tests (*_test files)
+cd %{_builddir}/%{pkg_name}-src-r%{version}
+while read unittest
+do
+    ./$unittest
+    if [ $? -ne 0 ]
+    then
+        exit 1
+    fi
+done < ./build/unittests.txt
+
+# Run JavaScript integration tests
+mkdir ./data
+buildscripts/smoke.py --smoke-db-prefix ./data --continue-on-failure --mongo=%{buildroot}%{_bindir}/mongo --mongod=%{buildroot}%{_bindir}/%{daemon} --nopreallocj jsCore
+rm -Rf ./data
 
 
 %post -p /sbin/ldconfig
@@ -326,8 +372,19 @@ fi
 %{_initddir}/%{daemonshard}
 %endif
 
+
+%files test
+%dir %attr(0750, %{pkg_name}, root) %{_datadir}/%{pkg_name}-test
+%dir %attr(0750, %{pkg_name}, root) %{_datadir}/%{pkg_name}-test/jstests
+%{_datadir}/%{name}-test/smoke.py
+%{_datadir}/%{name}-test/jstests/*
+
+
 %changelog
-* Thu Oct 9 2014 Marek Skalicky <mskalick@redhat.com> 2.6.6-1
+* Tue Dec 10 2014 Marek Skalicky <mskalick@redhat.com> 2.6.6-2
+- Added %check section and test subpackage
+
+* Thu Dec 10 2014 Marek Skalicky <mskalick@redhat.com> 2.6.6-1
 - Upgrade to version 2.6.6
 
 * Thu Oct 9 2014 Marek Skalicky <mskalick@redhat.com> 2.6.5-2
