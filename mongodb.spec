@@ -8,8 +8,8 @@
 %global daemonshard mongos
 
 Name:           mongodb
-Version:        2.6.5
-Release:        2%{?dist}
+Version:        2.6.6
+Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -327,6 +327,9 @@ fi
 %endif
 
 %changelog
+* Thu Oct 9 2014 Marek Skalicky <mskalick@redhat.com> 2.6.6-1
+- Upgrade to version 2.6.6
+
 * Thu Oct 9 2014 Marek Skalicky <mskalick@redhat.com> 2.6.5-2
 - Corrected/Finished renaming services and pid files
 - Changed default mongos ports
