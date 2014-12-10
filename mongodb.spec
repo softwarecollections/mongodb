@@ -327,7 +327,7 @@ fi
 %endif
 
 %changelog
-* Thu Oct 9 2014 Marek Skalicky <mskalick@redhat.com> 2.6.6-1
+* Wed Dec 10 2014 Marek Skalicky <mskalick@redhat.com> 2.6.6-1
 - Upgrade to version 2.6.6
 
 * Thu Oct 9 2014 Marek Skalicky <mskalick@redhat.com> 2.6.5-2
