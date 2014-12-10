@@ -381,7 +381,7 @@ fi
 
 
 %changelog
-* Tue Dec 10 2014 Marek Skalicky <mskalick@redhat.com> 2.6.6-2
+* Wed Dec 10 2014 Marek Skalicky <mskalick@redhat.com> 2.6.6-2
 - Added %check section and test subpackage
 
 * Thu Dec 10 2014 Marek Skalicky <mskalick@redhat.com> 2.6.6-1
