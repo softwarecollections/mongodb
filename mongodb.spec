@@ -29,6 +29,7 @@ Source7:        %{pkg_name}-shard.conf
 Source8:        %{daemonshard}.init
 Source9:        %{daemonshard}.service
 Source10:       %{daemonshard}.sysconf
+Source11:       README
 
 #Patch1:         mongodb-2.4.5-no-term.patch
 #FIXME maybe boostlibs should have also 'iostream'
@@ -113,6 +114,7 @@ This package provides the mongo server software, mongo sharding server
 software, default configuration files, and init scripts.
 
 
+%ifarch %{ix86} x86_64
 %package test
 Summary:          MongoDB test suite
 Group:            Applications/Databases
@@ -123,7 +125,7 @@ Requires:         python-pymongo
 %description test
 This package contains the regression test suite distributed with
 the MongoDB sources.
-
+%endif
 
 %prep
 %setup -q -n mongodb-src-r%{version}
@@ -151,27 +153,19 @@ sed -i -r "s|(for key in \('HOME'), 'TERM'(\):)|\1\2|" SConstruct
 
 
 # disable run test and perftest programs
-sed -i -r "s|^([[:space:]]*)(if suite == 'test':)|\1\2\n\1    break|"    buildscripts/smoke.py
-sed -i -r "s|^([[:space:]]*)(elif suite == 'perf':)|\1\2\n\1    break|"    buildscripts/smoke.py
+sed -i -r "s|^([[:space:]]*)(if suite == 'test':)|\1\2\n\1    continue|"      buildscripts/smoke.py
+sed -i -r "s|^([[:space:]]*)(elif suite == 'perf':)|\1\2\n\1    continue|"    buildscripts/smoke.py
 
-sed -i -r "s|(default=os.path.join\()mongo_repo(, 'mongod'\))|\1%{_bindir}\2|"    buildscripts/smoke.py
-sed -i -r "s|(default=os.path.join\()mongo_repo(, 'mongo'\))|\1%{_bindir}\2|"    buildscripts/smoke.py
-sed -i -r "s|(os.path.join\()mongo_repo(, program)|\1%{_bindir}\2|"    buildscripts/smoke.py
+# by default use system mongod, mongos and mongo binaries
+sed -i -r "s|(default=os.path.join\()mongo_repo(, 'mongod'\))|\1'%{_bindir}'\2|"   buildscripts/smoke.py
+sed -i -r "s|(default=os.path.join\()mongo_repo(, 'mongo'\))|\1'%{_bindir}'\2|"    buildscripts/smoke.py
+sed -i -r "s|(os.path.join\()mongo_repo(, program)|\1'%{_bindir}'\2|"              buildscripts/smoke.py
 
-# Put lib dir in correct place
-# https://jira.mongodb.org/browse/SERVER-10049
-# FIXME remove these options from mongodb.spec as they don't do anything any more
-#   --sharedclient
-#   --full
-#   --disable-declspec-thread
-#sed -i -e "s@\$INSTALL_DIR/lib@\$INSTALL_DIR/%{_lib}@g" src/SConscript.client
-# versioned client library
-#(pre='EnsureSConsVersion(2, 3, 0)'
-#post='sharedLibEnv.AppendUnique(SHLIBVERSION="%{version}")'
-#sed -i -r \
-#  -e "s|([[:space:]]*)(sharedLibEnv *= *env.Clone.*)|\1$pre\n\1\2\n\1$post|" \
-#  -e "s|(sharedLibEnv.)Install *\(|\1InstallVersionedLib(|" \
-#  src/SConscript.client)
+# set default data prefix
+sed -i -r "s|(smoke_db_prefix = ')'|\1var'|"                           buildscripts/smoke.py
+sed -i -r "s|^([[:space:]]*)(set_globals\(options, tests\))$|\1\2\n\1global failfile\n\1\
+failfile = os.path.join\(os.path.join\(mongo_repo, smoke_db_prefix\), 'failfile.smoke'\)|"    buildscripts/smoke.py
+
 
 %build
 # see add_option() calls in SConstruct for options
@@ -237,9 +231,16 @@ install -p -D -m 644 "%{SOURCE10}" %{buildroot}%{_sysconfdir}/sysconfig/%{daemon
 install -d -m 755            %{buildroot}%{_mandir}/man1
 install -p -m 644 debian/*.1 %{buildroot}%{_mandir}/man1/
 
+%ifarch %{ix86} x86_64
 mkdir -p %{buildroot}%{_datadir}/%{pkg_name}-test
-install -p -D -m 755    buildscripts/smoke.py   %{buildroot}%{_datadir}/%{pkg_name}-test/
+mkdir -p %{buildroot}%{_datadir}/%{pkg_name}-test/var
+install -p -D -m 555    buildscripts/smoke.py   %{buildroot}%{_datadir}/%{pkg_name}-test/
+install -p -D -m 444    buildscripts/cleanbb.py %{buildroot}%{_datadir}/%{pkg_name}-test/
+install -p -D -m 444    buildscripts/utils.py   %{buildroot}%{_datadir}/%{pkg_name}-test/
+
 cp -R                   jstests                 %{buildroot}%{_datadir}/%{pkg_name}-test/
+
+install -p -D -m 444    "%{SOURCE11}"           %{buildroot}%{_datadir}/%{pkg_name}-test/
 
 
 %check
@@ -257,10 +258,10 @@ do
 done < ./build/unittests.txt
 
 # Run JavaScript integration tests
-mkdir ./data
-buildscripts/smoke.py --smoke-db-prefix ./data --continue-on-failure --mongo=%{buildroot}%{_bindir}/mongo --mongod=%{buildroot}%{_bindir}/%{daemon} --nopreallocj jsCore
-rm -Rf ./data
-
+mkdir ./var
+buildscripts/smoke.py --smoke-db-prefix ./var --continue-on-failure --mongo=%{buildroot}%{_bindir}/mongo --mongod=%{buildroot}%{_bindir}/%{daemon} --nopreallocj jsCore
+rm -Rf ./var
+%endif
 
 %post -p /sbin/ldconfig
 
@@ -372,19 +373,23 @@ fi
 %{_initddir}/%{daemonshard}
 %endif
 
-
+%ifarch %{ix86} x86_64
 %files test
-%dir %attr(0750, %{pkg_name}, root) %{_datadir}/%{pkg_name}-test
-%dir %attr(0750, %{pkg_name}, root) %{_datadir}/%{pkg_name}-test/jstests
-%{_datadir}/%{name}-test/smoke.py
+%dir %attr(0755, %{pkg_name}, root) %{_datadir}/%{pkg_name}-test
+%dir %attr(0777, %{pkg_name}, root) %{_datadir}/%{pkg_name}-test/var
+%dir %attr(0755, %{pkg_name}, root) %{_datadir}/%{pkg_name}-test/jstests
+%{_datadir}/%{name}-test/smoke.*
+%{_datadir}/%{name}-test/cleanbb.*
+%{_datadir}/%{name}-test/utils.*
 %{_datadir}/%{name}-test/jstests/*
-
+%{_datadir}/%{name}-test/README
+%endif
 
 %changelog
 * Wed Dec 10 2014 Marek Skalicky <mskalick@redhat.com> 2.6.6-2
-- Added %check section and test subpackage
+- Added check section and test subpackage
 
-* Thu Dec 10 2014 Marek Skalicky <mskalick@redhat.com> 2.6.6-1
+* Wed Dec 10 2014 Marek Skalicky <mskalick@redhat.com> 2.6.6-1
 - Upgrade to version 2.6.6
 
 * Thu Oct 9 2014 Marek Skalicky <mskalick@redhat.com> 2.6.5-2
