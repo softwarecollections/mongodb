@@ -1,7 +1,6 @@
+%global _hardened_build 1
 # for better compatibility with SCL spec file
 %global pkg_name mongodb
-# EPEL 4 & 5 expands to %{_prefix}/com, otherwise to /var/lib
-%{!?_sharedstatedir:%global _sharedstatedir %{_localstatedir}/lib/}
 # mongod daemon
 %global daemon mongod
 # mongos daemon
@@ -9,7 +8,7 @@
 
 Name:           mongodb
 Version:        2.6.6
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -31,46 +30,34 @@ Source9:        %{daemonshard}.service
 Source10:       %{daemonshard}.sysconf
 Source11:       README
 
-#Patch1:         mongodb-2.4.5-no-term.patch
-#FIXME maybe boostlibs should have also 'iostream'
-#FIXME make it possible to use system libraries
-# scons --cpppath=%{lib} ...
-#Patch2:         mongodb-2.4.5-use-system-version.patch
-# https://jira.mongodb.org/browse/SERVER-9210
-# not needed any more
-#Patch5:         mongodb-2.4.5-boost-fix.patch
-# https://github.com/mongodb/mongo/commit/1d42a534e0eb1e9ac868c0234495c0333d57d7c1
-# not needed any more
-#Patch6:         mongodb-2.4.5-boost-size-fix.patch
 # https://bugzilla.redhat.com/show_bug.cgi?id=958014
 # need to work on getting this properly patched upstream
+# -> same work is made in prep section
 #Patch7:         mongodb-2.4.5-pass-flags.patch
-# compile with GCC 4.8 (FIXME prepare patch for upstream)
-Patch8:         mongodb-2.4.5-gcc48.patch
-# support atomics on ARM
-# FIXME add requirement on GCC version >= 4.7.0 (it has built-in atomic operations)
-#Patch10:        mongodb-2.4.5-atomics.patch
-# fix arm build (fixed in upstream from 2.5.x)
-#Patch11:        mongodb-2.4.5-signed-char-for-BSONType-enumerations.patch
+
+# compile with GCC 4.8
+# -> upstream solved it, by default -Wno-unused-local-typedefs is used
+#Patch8:         mongodb-2.4.5-gcc48.patch
 
 Requires:       v8 >= 3.14.5.10
+BuildRequires:  gcc >= 4.7
 BuildRequires:  pcre-devel
 BuildRequires:  boost-devel >= 1.44
-# provides tcmalloc
+# Provides tcmalloc
 BuildRequires:  gperftools-devel
 BuildRequires:  snappy-devel
 BuildRequires:  v8-devel
-#FIXME new
-BuildRequires:  libyaml-devel
-BuildRequires:  python-devel
+BuildRequires:  yaml-cpp-devel
 BuildRequires:  scons
 BuildRequires:  openssl-devel
-BuildRequires:  readline-devel
 BuildRequires:  libpcap-devel
+BuildRequires:  libstemmer-devel
 %if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
 BuildRequires:  systemd
 %endif
+%ifarch %{ix86} x86_64
 BuildRequires:  python-pymongo
+%endif
 
 # Mongodb must run on a little-endian CPU (see bug #630898)
 ExcludeArch:    ppc ppc64 %{sparc} s390 s390x
@@ -129,21 +116,15 @@ the MongoDB sources.
 
 %prep
 %setup -q -n mongodb-src-r%{version}
-#%patch1 -p1
-#%patch2 -p1
-#%patch5 -p1
-#%patch6 -p1
-#%patch7 -p1
-%patch8 -p1
-#%patch10 -p1 -b .atomics
-#%patch11 -p1 -b .type
 
-# FIXME report to upstream
-# "yaml-cpp/*.h" -> "*.h"
-#sed -i -r 's|yaml-cpp/||' src/third_party/yaml-cpp-0.5.1/include/yaml-cpp/yaml.h
-sed -i -r 's|yaml-cpp/||'       src/third_party/yaml-cpp-0.5.1/include/yaml-cpp/*.h
-sed -i -r 's|yaml-cpp/|../|'    src/third_party/yaml-cpp-0.5.1/include/yaml-cpp/*/*.h
-sed -i -r 's|yaml-cpp/|../../|' src/third_party/yaml-cpp-0.5.1/include/yaml-cpp/*/*/*.h
+# Fixed in upstream - version 2.7.3
+sed -i -r "s|(conf.FindSysLibDep\(\"yaml\", \[\"yaml)(\"\]\))|\1-cpp\2|" SConstruct
+
+# Use optflags and __global_ldflags, disable -fPIC
+(opt=$(echo "%{?optflags}" | sed -r -e 's| |","|g' )
+sed -i -r -e "s|(CCFLAGS=\[)\"-fPIC\"|\1\"$opt\"|" SConstruct)
+(opt=$(echo "%{?__global_ldflags}" | sed -r -e 's| |","|g' )
+sed -i -r -e "s|(LINKFLAGS=\[)\"-fPIC\"|\1\"$opt\"|" SConstruct)
 
 # CRLF -> LF
 sed -i 's/\r//' README
@@ -171,43 +152,22 @@ failfile = os.path.join\(os.path.join\(mongo_repo, smoke_db_prefix\), 'failfile.
 # see add_option() calls in SConstruct for options
 scons all \
         %{?_smp_mflags} \
-        --use-system-tcmalloc \
-        --use-system-pcre \
-        --use-system-boost \
-        --use-system-snappy \
-        --use-system-v8 \
-        --prefix=%{buildroot}%{_prefix} \
-        --extrapath=%{_prefix} \
+        --use-system-all  \
         --usev8 \
         --nostrip \
         --ssl \
-        --debug=findlibs \
-        --d
-# FIXME
-#        --cpppath=%{_lib} \
-#        --use-system-yaml \  # FIXME doesn't work because of weird problems
-#        --use-system-stemmer \  # FIXME libstemmer_c not available in Fedora
+
 
 %install
 # NOTE: If install flags are not EXACTLY the same as in %%build,
 #   mongodb will be built twice!
 scons install \
         %{?_smp_mflags} \
-        --use-system-tcmalloc \
-        --use-system-pcre \
-        --use-system-boost \
-        --use-system-snappy \
-        --use-system-v8 \
-        --prefix=%{buildroot}%{_prefix} \
-        --extrapath=%{_prefix} \
+        --use-system-all \
         --usev8 \
         --nostrip \
         --ssl \
-        --debug=findlibs \
-        --d
-#        --cpppath=%{_lib} \
-#        --use-system-yaml \
-#        --use-system-stemmer \  # libstemmer_c not available in Fedora
+        --prefix=%{buildroot}%{_prefix}
 
 mkdir -p %{buildroot}%{_sharedstatedir}/%{pkg_name}
 mkdir -p %{buildroot}%{_localstatedir}/log/%{pkg_name}
@@ -386,6 +346,12 @@ fi
 %endif
 
 %changelog
+* Wed Jan 7 2015 Marek Skalicky <mskalick@redhat.com> 2.6.6-3
+- Enabled hardened build and optflags + __global_ldflags are used
+- Reviewed patches and dependencies
+- Added gcc requires to support built-in atomic operations
+- Fix use of libstemmer and yaml-cpp system libraries
+
 * Wed Dec 10 2014 Marek Skalicky <mskalick@redhat.com> 2.6.6-2
 - Added check section and test subpackage
 
