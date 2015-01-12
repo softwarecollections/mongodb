@@ -1,4 +1,4 @@
-%global _hardened_build 1
+#%global _hardened_build 1
 # for better compatibility with SCL spec file
 %global pkg_name mongodb
 # mongod daemon
@@ -121,10 +121,10 @@ the MongoDB sources.
 sed -i -r "s|(conf.FindSysLibDep\(\"yaml\", \[\"yaml)(\"\]\))|\1-cpp\2|" SConstruct
 
 # Use optflags and __global_ldflags, disable -fPIC
-(opt=$(echo "%{?optflags}" | sed -r -e 's| |","|g' )
-sed -i -r -e "s|(CCFLAGS=\[)\"-fPIC\"|\1\"$opt\"|" SConstruct)
-(opt=$(echo "%{?__global_ldflags}" | sed -r -e 's| |","|g' )
-sed -i -r -e "s|(LINKFLAGS=\[)\"-fPIC\"|\1\"$opt\"|" SConstruct)
+#(opt=$(echo "%{?optflags}" | sed -r -e 's| |","|g' )
+#sed -i -r -e "s|(CCFLAGS=\[)\"-fPIC\"|\1\"$opt\"|" SConstruct)
+#(opt=$(echo "%{?__global_ldflags}" | sed -r -e 's| |","|g' )
+#sed -i -r -e "s|(LINKFLAGS=\[)\"-fPIC\"|\1\"$opt\"|" SConstruct)
 
 # CRLF -> LF
 sed -i 's/\r//' README
@@ -347,7 +347,7 @@ fi
 
 %changelog
 * Wed Jan 7 2015 Marek Skalicky <mskalick@redhat.com> 2.6.6-3
-- Enabled hardened build and optflags + __global_ldflags are used
+- Added systemd TimeoutStartSec (#1040573)
 - Reviewed patches and dependencies
 - Added gcc requires to support built-in atomic operations
 - Fix use of libstemmer and yaml-cpp system libraries

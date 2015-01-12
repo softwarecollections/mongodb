@@ -10,6 +10,7 @@ EnvironmentFile=/etc/sysconfig/mongod
 ExecStart=/usr/bin/mongod $OPTIONS run
 PrivateTmp=true
 LimitNOFILE=64000
+TimeoutStartSec=180
 
 [Install]
 WantedBy=multi-user.target
