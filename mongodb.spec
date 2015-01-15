@@ -8,7 +8,7 @@
 
 Name:           mongodb
 Version:        2.6.6
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -346,6 +346,10 @@ fi
 %endif
 
 %changelog
+* Thu Jan 15 2015 Marek Skalicky <mskalick@redhat.com> 2.6.6-4
+- Changed unix socket location to /var/run/mongodb/ (#1047858)
+- Revised default config files to correspond with --help options
+
 * Wed Jan 7 2015 Marek Skalicky <mskalick@redhat.com> 2.6.6-3
 - Added systemd TimeoutStartSec (#1040573)
 - Reviewed patches and dependencies
