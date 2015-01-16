@@ -7,8 +7,8 @@
 %global daemonshard mongos
 
 Name:           mongodb
-Version:        2.6.6
-Release:        4%{?dist}
+Version:        2.6.7
+Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -346,6 +346,10 @@ fi
 %endif
 
 %changelog
+* Thu Jan 16 2015 Marek Skalicky <mskalick@redhat.com> 2.6.7-1
+- Upgrade to 2.6.7
+- Fix typo errors in mongodb-test README 
+
 * Thu Jan 15 2015 Marek Skalicky <mskalick@redhat.com> 2.6.6-4
 - Changed unix socket location to /var/run/mongodb/ (#1047858)
 - Revised default config files to correspond with --help options
