@@ -1,3 +1,4 @@
+#%global _hardened_build 1
 # for better compatibility with SCL spec file
 %{?scl:%scl_package mongodb}
 %{!?scl:%global pkg_name %{name}}
@@ -6,9 +7,9 @@
 # mongos daemon
 %global daemonshard mongos
 
-Name:           %{?scl_prefix}mongodb
-Version:        2.6.5
-Release:        5%{?dist}
+Name:           mongodb
+Version:        2.6.7
+Release:        1%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -28,25 +29,35 @@ Source7:        %{pkg_name}-shard.conf
 Source8:        %{daemonshard}.init
 Source9:        %{daemonshard}.service
 Source10:       %{daemonshard}.sysconf
+Source11:       README
 
-Patch8:         mongodb-2.4.5-gcc48.patch
+# https://bugzilla.redhat.com/show_bug.cgi?id=958014
+# need to work on getting this properly patched upstream
+# -> same work is made in prep section
+#Patch7:         mongodb-2.4.5-pass-flags.patch
+
+# compile with GCC 4.8
+# -> upstream solved it, by default -Wno-unused-local-typedefs is used
+#Patch8:         mongodb-2.4.5-gcc48.patch
 
 Requires:       %{?scl_prefix_v8}v8 >= 3.14.5.10
+BuildRequires:  gcc >= 4.7
 BuildRequires:  pcre-devel
-BuildRequires:  %{?scl_prefix}boost-devel
-# provides tcmalloc
+BuildRequires:  %{?scl_prefix}boost-devel >= 1.44
+# Provides tcmalloc
 BuildRequires:  %{?scl_prefix}gperftools-devel
 BuildRequires:  %{?scl_prefix}snappy-devel
 BuildRequires:  %{?scl_prefix_v8}v8-devel
-#FIXME new
-BuildRequires:  libyaml-devel
-BuildRequires:  python-devel
+BuildRequires:  %{?scl_prefix}yaml-cpp-devel
 BuildRequires:  %{?scl_prefix}scons
 BuildRequires:  openssl-devel
-BuildRequires:  readline-devel
 BuildRequires:  libpcap-devel
+BuildRequires:  %{?scl_prefix}libstemmer-devel
 %if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
 BuildRequires:  systemd
+%endif
+%ifarch %{ix86} x86_64
+BuildRequires:  %{?scl_prefix}python-pymongo
 %endif
 
 %{?scl:Requires:%scl_runtime}
@@ -95,23 +106,50 @@ This package provides the mongo server software, mongo sharding server
 software, default configuration files, and init scripts.
 
 
+%ifarch %{ix86} x86_64
+%package test
+Summary:          MongoDB test suite
+Group:            Applications/Databases
+Requires:         %{name}%{?_isa} = %{version}-%{release}
+Requires:         %{name}-server%{?_isa} = %{version}-%{release}
+Requires:         %{?scl_prefix}python-pymongo
+
+%description test
+This package contains the regression test suite distributed with
+the MongoDB sources.
+%endif
+
 %prep
 %setup -q -n mongodb-src-r%{version}
 
-%patch8 -p1
+# Fixed in upstream - version 2.7.3
+sed -i -r "s|(conf.FindSysLibDep\(\"yaml\", \[\"yaml)(\"\]\))|\1-cpp\2|" SConstruct
 
-# FIXME report to upstream
-# "yaml-cpp/*.h" -> "*.h"
-#sed -i -r 's|yaml-cpp/||' src/third_party/yaml-cpp-0.5.1/include/yaml-cpp/yaml.h
-sed -i -r 's|yaml-cpp/||'       src/third_party/yaml-cpp-0.5.1/include/yaml-cpp/*.h
-sed -i -r 's|yaml-cpp/|../|'    src/third_party/yaml-cpp-0.5.1/include/yaml-cpp/*/*.h
-sed -i -r 's|yaml-cpp/|../../|' src/third_party/yaml-cpp-0.5.1/include/yaml-cpp/*/*/*.h
+# Use optflags and __global_ldflags, disable -fPIC
+#(opt=$(echo "%{?optflags}" | sed -r -e 's| |","|g' )
+#sed -i -r -e "s|(CCFLAGS=\[)\"-fPIC\"|\1\"$opt\"|" SConstruct)
+#(opt=$(echo "%{?__global_ldflags}" | sed -r -e 's| |","|g' )
+#sed -i -r -e "s|(LINKFLAGS=\[)\"-fPIC\"|\1\"$opt\"|" SConstruct)
 
 # CRLF -> LF
 sed -i 's/\r//' README
 
 # disable propagation of $TERM env var into the Scons build system
 sed -i -r "s|(for key in \('HOME'), 'TERM'(\):)|\1\2|" SConstruct
+
+# disable run test and perftest programs
+sed -i -r "s|^([[:space:]]*)(if suite == 'test':)|\1\2\n\1    continue|"      buildscripts/smoke.py
+sed -i -r "s|^([[:space:]]*)(elif suite == 'perf':)|\1\2\n\1    continue|"    buildscripts/smoke.py
+
+# by default use system mongod, mongos and mongo binaries
+sed -i -r "s|(default=os.path.join\()mongo_repo(, 'mongod'\))|\1'%{_bindir}'\2|"   buildscripts/smoke.py
+sed -i -r "s|(default=os.path.join\()mongo_repo(, 'mongo'\))|\1'%{_bindir}'\2|"    buildscripts/smoke.py
+sed -i -r "s|(os.path.join\()mongo_repo(, program)|\1'%{_bindir}'\2|"              buildscripts/smoke.py
+
+# set default data prefix
+sed -i -r "s|(smoke_db_prefix = ')'|\1var'|"                           buildscripts/smoke.py
+sed -i -r "s|^([[:space:]]*)(set_globals\(options, tests\))$|\1\2\n\1global failfile\n\1\
+failfile = os.path.join\(os.path.join\(mongo_repo, smoke_db_prefix\), 'failfile.smoke'\)|"    buildscripts/smoke.py
 
 # copy them (we will change their content)
 cp %{SOURCE1} %{SOURCE2} %{SOURCE3} %{SOURCE4} %{SOURCE5} \
@@ -164,26 +202,16 @@ done
 %build
 # see add_option() calls in SConstruct for options
 %{?scl:scl enable %{scl} - << "EOF"}
-scons \
+scons all \
         %{?_smp_mflags} \
-        --use-system-tcmalloc \
-        --use-system-pcre \
-        --use-system-boost \
-        --use-system-snappy \
-        --use-system-v8 \
-        --prefix=%{buildroot}%{_prefix} \
-        --extrapath=%{_prefix} \
+        --use-system-all  \
         --usev8 \
         --nostrip \
         --ssl \
-        --debug=findlibs \
-        --d \
         --propagate-shell-environment
+
 %{?scl:EOF}
-# FIXME
-#        --cpppath=%{_lib} \
-#        --use-system-yaml \  # FIXME doesn't work because of weird problems
-#        --use-system-stemmer \  # FIXME libstemmer_c not available in Fedora
+
 
 %install
 # NOTE: If install flags are not EXACTLY the same as in %%build,
@@ -191,26 +219,15 @@ scons \
 %{?scl:scl enable %{scl} - << "EOF"}
 scons install \
         %{?_smp_mflags} \
-        --use-system-tcmalloc \
-        --use-system-pcre \
-        --use-system-boost \
-        --use-system-snappy \
-        --use-system-v8 \
-        --prefix=%{buildroot}%{_prefix} \
-        --extrapath=%{_prefix} \
+        --use-system-all \
         --usev8 \
         --nostrip \
         --ssl \
-        --debug=findlibs \
-        --d \
-        --propagate-shell-environment
-%{?scl:EOF}
-#        --cpppath=%{_lib} \
-#        --use-system-yaml \
-#        --use-system-stemmer \  # libstemmer_c not available in Fedora
+        --propagate-shell-environment \
+        --prefix=%{buildroot}%{_prefix}
 
-mkdir -p %{buildroot}%{_sharedstatedir}/%{pkg_name}
-mkdir -p %{buildroot}%{_root_localstatedir}/log/%{?scl_prefix}%{pkg_name}
+%{?scl:EOF}
+
 mkdir -p %{buildroot}%{_localstatedir}/run/%{pkg_name}
 mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
 
@@ -228,12 +245,44 @@ install -p -D -m 644 "$(basename %{SOURCE7})"  %{buildroot}%{_sysconfdir}/%{pkg_
 install -p -D -m 644 "$(basename %{SOURCE6})"  %{buildroot}%{_sysconfdir}/sysconfig/%{daemon}
 install -p -D -m 644 "$(basename %{SOURCE10})" %{buildroot}%{_sysconfdir}/sysconfig/%{daemonshard}
 
-
 install -d -m 755            %{buildroot}%{_mandir}/man1
 install -p -m 644 debian/*.1 %{buildroot}%{_mandir}/man1/
 
+%ifarch %{ix86} x86_64
+mkdir -p %{buildroot}%{_datadir}/%{pkg_name}-test
+mkdir -p %{buildroot}%{_datadir}/%{pkg_name}-test/var
+install -p -D -m 555    buildscripts/smoke.py   %{buildroot}%{_datadir}/%{pkg_name}-test/
+install -p -D -m 444    buildscripts/cleanbb.py %{buildroot}%{_datadir}/%{pkg_name}-test/
+install -p -D -m 444    buildscripts/utils.py   %{buildroot}%{_datadir}/%{pkg_name}-test/
+
+cp -R                   jstests                 %{buildroot}%{_datadir}/%{pkg_name}-test/
+
+install -p -D -m 444    "%{SOURCE11}"           %{buildroot}%{_datadir}/%{pkg_name}-test/
+
+
+%check
+# More info about testing:
+# http://www.mongodb.org/about/contributors/tutorial/test-the-mongodb-server/
+# Run new-style unit tests (*_test files)
+cd %{_builddir}/%{pkg_name}-src-r%{version}
+while read unittest
+do
+    ./$unittest
+    if [ $? -ne 0 ]
+    then
+        exit 1
+    fi
+done < ./build/unittests.txt
+
+# Run JavaScript integration tests
+mkdir ./var
+buildscripts/smoke.py --smoke-db-prefix ./var --continue-on-failure --mongo=%{buildroot}%{_bindir}/mongo --mongod=%{buildroot}%{_bindir}/%{daemon} --nopreallocj jsCore
+rm -Rf ./var
+%endif
 
 %post -p /sbin/ldconfig
+
+
 %postun -p /sbin/ldconfig
 
 
@@ -256,13 +305,6 @@ exit 0
   /sbin/chkconfig --add %{?scl_prefix}%{daemonshard}
 %endif
 
-# work-around for RHBZ#924044
-#%if 0%{?rhel} < 7
-#restorecon -R %{_scl_root} >/dev/null 2>&1 || :
-#restorecon -R %{_root_localstatedir}/log/%{?scl_prefix}%{pkg_name} >/dev/null 2>&1 || :
-#restorecon %{_root_initddir}/%{?scl_prefix}%{pkg_name}       >/dev/null 2>&1 || :
-#restorecon %{_root_initddir}/%{?scl_prefix}%{pkg_name}-shard >/dev/null 2>&1 || :
-#%endif
 
 %preun server
 if [ "$1" = 0 ]; then
@@ -349,7 +391,22 @@ fi
 %{_root_initddir}/%{?scl_prefix}%{daemonshard}
 %endif
 
+%ifarch %{ix86} x86_64
+%files test
+%dir %attr(0755, %{pkg_name}, root) %{_datadir}/%{pkg_name}-test
+%dir %attr(0777, %{pkg_name}, root) %{_datadir}/%{pkg_name}-test/var
+%dir %attr(0755, %{pkg_name}, root) %{_datadir}/%{pkg_name}-test/jstests
+%{_datadir}/%{pkg_name}-test/smoke.*
+%{_datadir}/%{pkg_name}-test/cleanbb.*
+%{_datadir}/%{pkg_name}-test/utils.*
+%{_datadir}/%{pkg_name}-test/jstests/*
+%{_datadir}/%{pkg_name}-test/README
+%endif
+
 %changelog
+* Mon Jan 19 2015 Marek Skalicky <mskalick@redhat.com> 2.6.7-2
+- Merged changes from Fedora Rawhide
+
 * Tue Nov 18 2014 Marek Skalicky <mskalick@redhat.com> 2.6.5-5
 - Changed and cleaned up requirements
 

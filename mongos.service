@@ -10,6 +10,7 @@ EnvironmentFile=/etc/sysconfig/mongos
 ExecStart=/usr/bin/mongos $OPTIONS
 PrivateTmp=true
 LimitNOFILE=64000
+TimeoutStartSec=180
 
 [Install]
 WantedBy=multi-user.target
