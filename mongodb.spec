@@ -9,7 +9,7 @@
 
 Name:           mongodb
 Version:        2.6.7
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
