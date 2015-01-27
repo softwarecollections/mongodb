@@ -9,7 +9,7 @@
 
 Name:           mongodb
 Version:        2.6.7
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        High-performance, schema-free document-oriented database
 Group:          Applications/Databases
 License:        AGPLv3 and zlib and ASL 2.0
@@ -393,17 +393,20 @@ fi
 
 %ifarch %{ix86} x86_64
 %files test
+%doc %{_datadir}/%{pkg_name}-test/README
 %dir %attr(0755, %{pkg_name}, root) %{_datadir}/%{pkg_name}-test
-%dir %attr(0777, %{pkg_name}, root) %{_datadir}/%{pkg_name}-test/var
+%dir %attr(0755, %{pkg_name}, root) %{_datadir}/%{pkg_name}-test/var
 %dir %attr(0755, %{pkg_name}, root) %{_datadir}/%{pkg_name}-test/jstests
 %{_datadir}/%{pkg_name}-test/smoke.*
 %{_datadir}/%{pkg_name}-test/cleanbb.*
 %{_datadir}/%{pkg_name}-test/utils.*
 %{_datadir}/%{pkg_name}-test/jstests/*
-%{_datadir}/%{pkg_name}-test/README
 %endif
 
 %changelog
+* Tue Jan 27 2015 Honza Horak <hhorak@redhat.com> - 2.6.7-3
+- Use 0755 on var directory for tests, mark README as doc
+
 * Mon Jan 19 2015 Marek Skalicky <mskalick@redhat.com> 2.6.7-2
 - Merged changes from Fedora Rawhide
 
